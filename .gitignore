@@ -3,3 +3,7 @@ deps
 *.o
 *.beam
 *.plt
+ebin/
+js/
+*~
+erl_crash.dump
