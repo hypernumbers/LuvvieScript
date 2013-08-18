@@ -28,7 +28,7 @@ compile() ->
     {ok, Dir} = file:get_cwd(),
     Files = filelib:wildcard(Dir ++ "/test/supported/br*.erl"),
     Output = [luvviescript:compile(File) || File <- Files],
-    % io:format("Output is ~p~n", [Output]),
+    io:format("Output is ~p~n", [Output]),
     ok.
 
 clear_old_js() ->

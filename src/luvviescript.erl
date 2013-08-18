@@ -40,45 +40,91 @@ compile(File) ->
                                       [return_white_spaces, return_comments]),
     {ok, Tokens2} = collect_tokens(Tokens),
     Name = filename:rootname(filename:basename(File)),
-    comp2(Syntax, #module{name = Name}, Tokens2, []).
+    comp2(Syntax, #module{name = Name}, []).
 
-comp2([], Module, _Tokens, Acc) ->
+comp2([], Module, Acc) ->
     Module#module{contents = lists:reverse(Acc)};
-comp2([{function, LineNo, Fn, Arity, Contents} | T], Module, Tokens, Acc) ->
-    C = comp_fn(Contents, Tokens, []),
+comp2([{function, LineNo, Fn, Arity, Contents} | T], Module, Acc) ->
+    C = comp_fn(Contents, []),
     NewAcc = #function{name     = Fn,
                        arity    = Arity,
                        line_no  = LineNo,
                        contents = C},
-    comp2(T, Module, Tokens, [NewAcc | Acc]);
-comp2([{eof, _} | T], Module, Tokens, Acc) ->
-    comp2(T, Module, Tokens, Acc);
-comp2([{attribute, _, _, _} = A | T], Module, Tokens, Acc) ->
+    comp2(T, Module, [NewAcc | Acc]);
+comp2([{eof, _} | T], Module, Acc) ->
+    comp2(T, Module, Acc);
+comp2([{attribute, _, _, _} = A | T], Module, Acc) ->
     #module{attributes = Attrs} = Module,
     NewM = Module#module{attributes = [A | Attrs]},
-    comp2(T, NewM, Tokens, Acc);
-comp2([H | T], Module, Tokens, Acc) ->
+    comp2(T, NewM, Acc);
+comp2([H | T], Module, Acc) ->
     io:format("Handle ~p~n", [H]),
-    comp2(T, Module, Tokens, Acc).
+    comp2(T, Module, Acc).
 
-comp_fn([], _Tokens, Acc) ->
+comp_fn([], Acc) ->
     lists:reverse(Acc);
-comp_fn([{clause, LineNo, Params, Guards, Contents} | T], Tokens, Acc) ->
+comp_fn([{clause, LineNo, Params, Guards, Contents} | T], Acc) ->
     C = comp_st(Contents, []),
     NewAcc = #clause{params   = Params,
                      guards   = Guards,
                      line_no  = LineNo,
                      contents = C},
-    comp_fn(T, Tokens, [NewAcc | Acc]);
-comp_fn([H | T], Tokens, Acc) ->
+    comp_fn(T, [NewAcc | Acc]);
+comp_fn([H | T], Acc) ->
     io:format("Handle (2) ~p~n", [H]),
-    comp_fn(T, Tokens, Acc).
+    comp_fn(T, Acc).
 
 comp_st([], Acc) ->
     lists:reverse(Acc);
+comp_st([{atom, LineNo, Int} | T], Acc) ->
+    NewAcc = make_js(atom, {LineNo, atom}, Acc),
+    comp_st(T, NewAcc);
+comp_st([{float, LineNo, float} | T], Acc) ->
+    NewAcc = make_js(float, {LineNo, float}, Acc),
+    comp_st(T, NewAcc);
+comp_st([{integer, LineNo, Int} | T], Acc) ->
+    NewAcc = make_js(int, {LineNo, Int}, Acc),
+    comp_st(T, NewAcc);
+comp_st([{var, LineNo, Symb} | T], Acc) ->
+    NewAcc = make_js(var, {LineNo, Symb}, Acc),
+    comp_st(T, NewAcc);
+comp_st([{op, LineNo, Op, Lhs, Rhs} | T], Acc) ->
+    NewAcc = make_js(op, {Op, LineNo, Lhs, Rhs}, Acc),
+    comp_st(T, NewAcc);
 comp_st([H | T], Acc) ->
     io:format("Handle (3) is ~p~n", [H]),
     comp_st(T, Acc).
+
+make_js(atom, {LineNo, Atom}, Acc) ->
+    [wsp(), {atom, "{atom: " ++ Atom ++ "}", LineNo}, wsp() | Acc];
+make_js(float, {LineNo, Float}, Acc) ->
+    [wsp(), {float, float_to_list(Float), LineNo}, wsp() | Acc];
+make_js(int, {LineNo, Int}, Acc) ->
+    [wsp(), {int, integer_to_list(Int), LineNo}, wsp() | Acc];
+make_js(var, {LineNo, Symb}, Acc) ->
+    [wsp(), {var, atom_to_list(Symb), LineNo}, wsp() | Acc];
+make_js(op, {Op, LineNo, Lhs, Rhs}, Acc) when Op == '+' orelse
+                                              Op == '-' orelse
+                                              Op == '*' ->
+    %% produce the pseudo-tokens in **REVERSE** order
+
+    lists:flatten([
+                   comp_st([Rhs], []),
+                   wsp(),
+                   {op, atom_to_list(Op), LineNo},
+                   comp_st([Lhs], [])
+                   | Acc
+                  ]);
+make_js(op, {Op, LineNo, Lhs, Rhs}, Acc) when Op == '/' ->
+    %% produce the pseudo-tokens in **REVERSE** order
+    lists:flatten([
+                   comp_st([Rhs], []),
+                   {op, atom_to_list(Op), LineNo},
+                   comp_st([Lhs], [])
+                   | Acc
+                  ]).
+
+wsp() -> {whitespace, " "}.
 
 compile_to_ast(File) -> case compile:file(File, [to_pp, binary]) of
                             {ok, _, _} = Syn -> Syn;
