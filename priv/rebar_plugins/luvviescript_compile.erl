@@ -26,7 +26,7 @@ luvviescript_compile(_A, _B) ->
 compile() ->
     code:add_patha("ebin/"),
     {ok, Dir} = file:get_cwd(),
-    Files = filelib:wildcard(Dir ++ "/test/supported/ty*.erl"),
+    Files = filelib:wildcard(Dir ++ "/test/supported/li*.erl"),
     Output = [luvviescript:compile(File) || File <- Files],
     io:format("Output is ~p~n", [Output]),
     ok.

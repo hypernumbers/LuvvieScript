@@ -65,6 +65,7 @@ comp_fn([], Acc) ->
     lists:reverse(Acc);
 comp_fn([{clause, LineNo, Params, Guards, Contents} | T], Acc) ->
     C = comp_st(Contents, []),
+    io:format(print_contents(C) ++ "~n"),
     NewAcc = #clause{params   = Params,
                      guards   = Guards,
                      line_no  = LineNo,
@@ -76,11 +77,17 @@ comp_fn([H | T], Acc) ->
 
 comp_st([], Acc) ->
     lists:reverse(Acc);
-comp_st([{atom, LineNo, Int} | T], Acc) ->
-    NewAcc = make_js(atom, {LineNo, atom}, Acc),
+comp_st([{call, _LineNo, {atom, LineNo, Fn}, Args} | T], Acc) ->
+    NewAcc = make_js(fn, {LineNo, Fn, Args}, Acc),
     comp_st(T, NewAcc);
-comp_st([{float, LineNo, float} | T], Acc) ->
-    NewAcc = make_js(float, {LineNo, float}, Acc),
+comp_st([{string, LineNo, String} | T], Acc) ->
+    NewAcc = make_js(string, {LineNo, String}, Acc),
+    comp_st(T, NewAcc);
+comp_st([{atom, LineNo, Atom} | T], Acc) ->
+    NewAcc = make_js(atom, {LineNo, Atom}, Acc),
+    comp_st(T, NewAcc);
+comp_st([{float, LineNo, Float} | T], Acc) ->
+    NewAcc = make_js(float, {LineNo, Float}, Acc),
     comp_st(T, NewAcc);
 comp_st([{integer, LineNo, Int} | T], Acc) ->
     NewAcc = make_js(int, {LineNo, Int}, Acc),
@@ -98,10 +105,26 @@ comp_st([H | T], Acc) ->
     io:format("Handle (3) is ~p~n", [H]),
     comp_st(T, Acc).
 
+make_js(fn, {LineNo, Fn, Args}, Acc) ->
+    %% produce the pseudo-tokens in **REVERSE** order
+    lists:flatten([
+                         wsp(),
+                         {close, ")", LineNo},
+                         lists:reverse(comp_st([Args], [])),
+                         {open, "(", LineNo},
+                         {fn, atom_to_list(Fn), LineNo}
+                         | Acc
+                        ]);
+make_js(string, {LineNo, String}, Acc) ->
+    [
+     wsp(),
+     {string, "\"" ++ String ++ "\"", LineNo}
+     | Acc
+    ];
 make_js(atom, {LineNo, Atom}, Acc) ->
     [
      wsp(),
-     {atom, "{atom: " ++ atom_to_list(Atom) ++ "}", LineNo}
+     {atom, "{atom: \"" ++ atom_to_list(Atom) ++ "\"}", LineNo}
      | Acc
     ];
 make_js(float, {LineNo, Float}, Acc) ->
@@ -124,34 +147,31 @@ make_js(var, {LineNo, Symb}, Acc) ->
     ];
 make_js(op, {Op, LineNo, Lhs, Rhs}, Acc) when Op == '+' orelse
                                               Op == '-' orelse
-                                              Op == '*' ->
+                                              Op == '*' orelse
+                                              Op == '/' ->
     %% produce the pseudo-tokens in **REVERSE** order
     lists:flatten([
-                   comp_st([Rhs], []),
+                   semi(),
+                   lists:reverse(comp_st([Rhs], [])),
                    wsp(),
                    {op, atom_to_list(Op), LineNo},
-                   comp_st([Lhs], [])
-                   | Acc
-                  ]);
-make_js(op, {Op, LineNo, Lhs, Rhs}, Acc) when Op == '/' ->
-    %% produce the pseudo-tokens in **REVERSE** order
-    lists:flatten([
-                   comp_st([Rhs], []),
-                   {op, atom_to_list(Op), LineNo},
-                   comp_st([Lhs], [])
+                   lists:reverse(comp_st([Lhs], []))
                    | Acc
                   ]);
 make_js(match, {LineNo, Lhs, Rhs}, Acc) ->
     %% produce the pseudo-tokens in **REVERSE** order
     lists:flatten([
-                   comp_st([Rhs], []),
+                   semi(),
+                   lists:reverse(comp_st([Rhs], [])),
                    wsp(),
                    {match, "=", LineNo},
-                   comp_st([Lhs], [])
+                   lists:reverse(comp_st([Lhs], []))
                    | Acc
                   ]).
 
-wsp() -> {whitespace, " "}.
+wsp() -> {whitespace, " ", nonce}.
+
+semi() -> {linending, ";~n", nonce}.
 
 compile_to_ast(File) -> case compile:file(File, [to_pp, binary]) of
                             {ok, _, _} = Syn -> Syn;
@@ -167,3 +187,8 @@ col2([H  | T], N2, A1, A2) -> N1 = element(2, H),
                                   N1 -> col2(T, N1, [H | A1], A2);
                                   _  -> col2([H | T], N1, [], [{N2, A1} | A2])
                               end.
+
+print_contents(C) -> print_c(C, []).
+
+print_c([],                   Acc) -> lists:flatten(lists:reverse(Acc));
+print_c([{_, String, _} | T], Acc) -> print_c(T, [String | Acc]).
