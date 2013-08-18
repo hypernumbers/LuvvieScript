@@ -91,23 +91,41 @@ comp_st([{var, LineNo, Symb} | T], Acc) ->
 comp_st([{op, LineNo, Op, Lhs, Rhs} | T], Acc) ->
     NewAcc = make_js(op, {Op, LineNo, Lhs, Rhs}, Acc),
     comp_st(T, NewAcc);
+comp_st([{match, LineNo, Lhs, Rhs} | T], Acc) ->
+    NewAcc = make_js(match, {LineNo, Lhs, Rhs}, Acc),
+    comp_st(T, NewAcc);
 comp_st([H | T], Acc) ->
     io:format("Handle (3) is ~p~n", [H]),
     comp_st(T, Acc).
 
 make_js(atom, {LineNo, Atom}, Acc) ->
-    [wsp(), {atom, "{atom: " ++ Atom ++ "}", LineNo}, wsp() | Acc];
+    [
+     wsp(),
+     {atom, "{atom: " ++ atom_to_list(Atom) ++ "}", LineNo}
+     | Acc
+    ];
 make_js(float, {LineNo, Float}, Acc) ->
-    [wsp(), {float, float_to_list(Float), LineNo}, wsp() | Acc];
+    [
+     wsp(),
+     {float, float_to_list(Float), LineNo}
+     | Acc
+    ];
 make_js(int, {LineNo, Int}, Acc) ->
-    [wsp(), {int, integer_to_list(Int), LineNo}, wsp() | Acc];
+    [
+     wsp(),
+     {int, integer_to_list(Int), LineNo}
+     | Acc
+    ];
 make_js(var, {LineNo, Symb}, Acc) ->
-    [wsp(), {var, atom_to_list(Symb), LineNo}, wsp() | Acc];
+    [
+     wsp(),
+     {var, atom_to_list(Symb), LineNo}
+     | Acc
+    ];
 make_js(op, {Op, LineNo, Lhs, Rhs}, Acc) when Op == '+' orelse
                                               Op == '-' orelse
                                               Op == '*' ->
     %% produce the pseudo-tokens in **REVERSE** order
-
     lists:flatten([
                    comp_st([Rhs], []),
                    wsp(),
@@ -120,6 +138,15 @@ make_js(op, {Op, LineNo, Lhs, Rhs}, Acc) when Op == '/' ->
     lists:flatten([
                    comp_st([Rhs], []),
                    {op, atom_to_list(Op), LineNo},
+                   comp_st([Lhs], [])
+                   | Acc
+                  ]);
+make_js(match, {LineNo, Lhs, Rhs}, Acc) ->
+    %% produce the pseudo-tokens in **REVERSE** order
+    lists:flatten([
+                   comp_st([Rhs], []),
+                   wsp(),
+                   {match, "=", LineNo},
                    comp_st([Lhs], [])
                    | Acc
                   ]).
