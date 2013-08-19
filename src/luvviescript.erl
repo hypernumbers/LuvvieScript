@@ -44,7 +44,6 @@ compile(File) ->
     io:format("Tokens is ~p~n", [Tokens]),
     {ok, _Tokens2} = collect_tokens(Tokens),
     Name = filename:rootname(filename:basename(File)) ++ ".erl",
-    io:format("Name is ~p~n", [Name]),
     comp2(Syntax, #module{name = Name}, Name, []).
 
 comp2([], Mod, _OrigF, Acc) ->
@@ -56,8 +55,7 @@ comp2([{function, LineNo, Fn, Arity, Contents} | T], Mod, OrigF, Acc) ->
                      line_no  = LineNo,
                      contents = C},
     comp2(T, Mod, OrigF, [NewA | Acc]);
-comp2([{eof, _} = H | T], Mod, OrigF, Acc) ->
-    io:format("got to ~p~n", [H]),
+comp2([{eof, _} | T], Mod, OrigF, Acc) ->
     comp2(T, Mod, OrigF, Acc);
 comp2([{attribute, _, file, {Name, _}} | T], Mod, _OrigF, Acc) ->
     io:format("Name is ~p~n", [Name]),
@@ -110,6 +108,9 @@ comp_st([{integer, LNo, Int} | T], Context, OrigF, Acc) ->
 comp_st([{var, LNo, Symb} | T], Context, OrigF, Acc) ->
     NewAcc = make_js(var, {LNo, Symb}, OrigF, Acc),
     comp_st(T, Context, OrigF, NewAcc);
+%% comp_st([[] | T], Context, OrigF, Acc) ->
+%%     NewAcc = make_js(empty_list, nonce, OrigF, Acc),
+%%     comp_st(T, Context, OrigF, semi(Context, NewAcc));
 comp_st([{op, LNo, Op, Lhs, Rhs} | T], Context, OrigF, Acc) ->
     NewAcc = make_js(op, {Op, LNo, Lhs, Rhs}, OrigF, Acc),
     comp_st(T, Context, OrigF, semi(Context, NewAcc));
@@ -164,10 +165,17 @@ semi(expression, List) -> List.
 
 compile_to_ast(File) ->
     IncludeDir = filename:dirname(File) ++ "/../include",
-    case compile:file(File, ['P', {i, IncludeDir}]) of
+    OutDir     = filename:dirname(File),
+    case compile:file(File, [
+                             'P',
+                             {i, IncludeDir},
+                             {outdir, OutDir}
+                            ]) of
         {ok, []} -> File2 = filename:rootname(File) ++ ".P",
+                    io:format("File2 is ~p~n", [File2]),
                     epp:parse_file(File2, IncludeDir, []);
-        error    -> {error, File}
+        error    -> io:format("Cannae compile...~n"),
+                    {error, File}
     end.
 
 collect_tokens(List) -> {ok, col2(List, 1, [], [])}.

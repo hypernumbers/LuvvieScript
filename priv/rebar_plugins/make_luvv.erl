@@ -5,17 +5,17 @@
 %%% @end
 %%% Created :  15 Aug 2013 by gordonguthrie@backawinner.gg
 
--module(make_luv).
+-module(make_luvv).
 
 -export([
-         make_luv/2
+         make_luvv/2
         ]).
 
 -define(JSDIR,       "js/").
 -define(SUPPORTED,   "priv/supported/").
 -define(UNSUPPORTED, "priv/unsupported/").
 
-make_luv(_A, _B) ->
+make_luvv(_A, _B) ->
     case has_js_dir() of
         true  -> ok = clear_old_js();
         false -> ok
@@ -26,9 +26,9 @@ make_luv(_A, _B) ->
 compile() ->
     code:add_patha("ebin/"),
     {ok, Dir} = file:get_cwd(),
-    Files = filelib:wildcard(Dir ++ "/test/supported/in*.erl"),
+    Files = filelib:wildcard(Dir ++ "/test/supported/ty*.erl"),
     Output = [luvviescript:compile(File) || File <- Files],
-    [luvviescript:pretty_print(X) || X <- Output],
+    % [luvviescript:pretty_print(X) || X <- Output],
     ok.
 
 clear_old_js() ->
