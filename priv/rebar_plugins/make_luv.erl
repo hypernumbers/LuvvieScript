@@ -5,17 +5,17 @@
 %%% @end
 %%% Created :  15 Aug 2013 by gordonguthrie@backawinner.gg
 
--module(luvviescript_compile).
+-module(make_luv).
 
 -export([
-         luvviescript_compile/2
+         make_luv/2
         ]).
 
 -define(JSDIR,       "js/").
 -define(SUPPORTED,   "priv/supported/").
 -define(UNSUPPORTED, "priv/unsupported/").
 
-luvviescript_compile(_A, _B) ->
+make_luv(_A, _B) ->
     case has_js_dir() of
         true  -> ok = clear_old_js();
         false -> ok
