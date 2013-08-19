@@ -3,6 +3,7 @@ deps
 *.o
 *.beam
 *.plt
+*.P
 ebin/
 js/
 *~
