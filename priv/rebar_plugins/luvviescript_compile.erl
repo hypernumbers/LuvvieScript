@@ -26,9 +26,9 @@ luvviescript_compile(_A, _B) ->
 compile() ->
     code:add_patha("ebin/"),
     {ok, Dir} = file:get_cwd(),
-    Files = filelib:wildcard(Dir ++ "/test/supported/li*.erl"),
+    Files = filelib:wildcard(Dir ++ "/test/supported/in*.erl"),
     Output = [luvviescript:compile(File) || File <- Files],
-    io:format("Output is ~p~n", [Output]),
+    [luvviescript:pretty_print(X) || X <- Output],
     ok.
 
 clear_old_js() ->
