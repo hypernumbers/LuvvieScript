@@ -15,6 +15,8 @@ Why LuvvieScript And Not CoffeeScript?
 
 LuvvieScript is designed to provide an impedance free development environment for web applications: where the back end is written in Erlang/OTP. Back-end Erlang processes can transparently send messages to brower-based Erlang processes - and vicky-verka...
 
+Watch <a href='http://prezi.com/igzrai0bbpc5/?utm_campaign=share&utm_medium=copy'>the presentation</a>.
+
 Why Is It Called LuvvieScript?
 ------------------------------
 
