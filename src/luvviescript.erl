@@ -38,13 +38,20 @@
 compile(File) ->
     {ok, Syntax} = compile_to_ast(File),
     io:format("Syntax is ~p~n", [Syntax]),
+    Str = io_lib:format("~p~n", [Syntax]),
+    plain_log(Str, "/tmp/syntax.log"),
     {ok, Binary}    = file:read_file(File),
     {ok, Tokens, _} = erl_scan:string(binary_to_list(Binary), 1,
                                       [return_white_spaces, return_comments]),
     io:format("Tokens is ~p~n", [Tokens]),
+    Str2 = io_lib:format("~p~n", [Tokens]),
+    plain_log(Str2, "/tmp/tokens.log"),
     {ok, _Tokens2} = collect_tokens(Tokens),
     Name = filename:rootname(filename:basename(File)) ++ ".erl",
-    comp2(Syntax, #module{name = Name}, Name, []).
+    Output = comp2(Syntax, #module{name = Name}, Name, []),
+    Str3 = io_lib:format("~p~n", [Output]),
+    plain_log(Str3, "/tmp/output.log"),
+    Output.
 
 comp2([], Mod, _OrigF, Acc) ->
     Mod#module{contents = lists:reverse(Acc)};
@@ -235,3 +242,13 @@ pretty_print(Rec) when is_record(Rec, clause) ->
     [io:format("~p~n", [X]) || X <- Rec#clause.contents],
     ok.
 
+plain_log(String, File) ->
+    _Return = filelib:ensure_dir(File),
+
+    case file:open(File, [append]) of
+        {ok, Id} ->
+            io:fwrite(Id, "~s~n", [String]),
+            file:close(Id);
+        _ ->
+            error
+    end.

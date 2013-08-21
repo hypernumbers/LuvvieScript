@@ -12,7 +12,7 @@ including() ->
 location() ->      dingo().
 
 complex_clauses() ->
-    A = 1,
+    A=1,
     B = case A of
             1 ->  "stick the return up here";
         3 ->
