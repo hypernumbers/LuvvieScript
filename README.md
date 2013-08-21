@@ -180,11 +180,11 @@ This is preprocessed to the ``.P`` format:
 
 ```
 
-Couple of things to notice:
+Three things to notice:
 
 * the include files have been included
 * there are ``file`` attributes inserted which tell you where the inserted information came from
-* the complex clauses of the list comprehensions have been unrolled
+* the complex clauses of the list comprehensions have been pretty-printed
 
 The Erlang AST to which this has been compiled is a Lisp dialect, as shown in this extract:
 
@@ -235,6 +235,7 @@ Take the Erlang Clause:
 
 This is turned into javascript pseudo-tokens as shown below:
 
+```erlang
     [{var,"A",{"types.erl",8}},
      {match,"=",{"types.erl",8}},
      {int,"1",{"types.erl",8}},
@@ -253,9 +254,11 @@ This is turned into javascript pseudo-tokens as shown below:
      {linending,";~n",nonce},
      ...
      {linending,";~n",nonce}]}]}]}
+```
 
 These pseudo-tokens can be turned into Javascript trivially (with an appropriate indentation). By matching these pseudo-tokens with the original token stream the sourcemap can be generated. The original Erlang tokens for this clause being:
 
+```erlang
     {var,6,'A'},
     {white_space,6,"  "},
     {'=',6},
@@ -270,6 +273,7 @@ These pseudo-tokens can be turned into Javascript trivially (with an appropriate
     {float,7,2.3},
     {',',7},
     ...
+```
 
 Towards A Test Suite
 --------------------
