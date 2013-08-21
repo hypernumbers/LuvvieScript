@@ -1,8 +1,5 @@
 <img src='https://raw.github.com/hypernumbers/LuvvieScript/master/priv/images/luvviescript.png' />
 
-LuvvieScript - Actors In The Browser
-====================================
-
 What Is LuvvieScript?
 ---------------------
 
@@ -11,7 +8,7 @@ LuvvieScript is Erlang that compiles to Javascript - it is a lightweight, actor-
 What Are Actors?
 ----------------
 
-The Actor model is a progamming technique where units of concurrency share no state and communicate by sending each other messages. These units of concurrency are properly called **processes* (and not threads).
+The Actor model is a progamming technique where units of concurrency share no state and communicate by sending each other messages. These units of concurrency are properly called **processes** (and not threads).
 
 Why LuvvieScript And Not CoffeeScript?
 --------------------------------------
@@ -99,12 +96,12 @@ The two token scripts are processed in sync to generate the javascript and the a
 
 The ``.P`` form of the Erlang has the inserted code *reversed out* to generate the source code against which the sourcemap reports.
 
-Another View
-------------
+The Production Toolchain - Another View
+---------------------------------------
 
 This process is best shown with an example. Here is some raw Erlang sourcecode deliberately produced with erratic indenting.
 
-```erlang```
+```erlang
 
     -module(including).
 
