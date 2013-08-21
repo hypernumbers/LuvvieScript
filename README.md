@@ -50,12 +50,12 @@ LuvvieScript Primitives
     Integer        <---> Integer
     Float          <---> Double
     String         <---> UTF8 string
-    Atom           <---> object ``{atom: Atom}``
+    Atom           <---> object {atom: Atom}
     List           <---> Array
     Records        <---> Objects
                          with a helper fn to map position to element name
     Funs           <---> Funs
-    Tuple          <---> "{tuple: Array}"
+    Tuple          <---> {tuple: Array}
     Dict Of Dicts  <---> Objects/JSON
                          All Fn calls out to external fns will be cast on return
 
