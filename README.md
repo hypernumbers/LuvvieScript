@@ -72,8 +72,8 @@ The canonical site for information about sourcemaps is https://github.com/mozill
 
 The reason for this is the process by which compiled-to-Javascript languages can be debugged in browsers. The debugger steps though the **Javascript** and then uses the sourcemapper information to translate its location back to a position in the **original files**.
 
-The Production Chain
---------------------
+The Production ToolChain
+------------------------
 
 The production toolchain uses normal Erlang syntax tools to process and validate the Erlang onto a standard Erlang Abstract Syntax tree - which is then compiled to Javascript.
 
