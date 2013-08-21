@@ -280,16 +280,16 @@ Towards A Test Suite
 
 The next stage of LuvvieScript is a running test suite. This section will outline the testing process.
 
-In ``test/supported`` there are a series of Erlang files that contain example code of supported constructs. In ``test/unsupported`` there are a similar set of files of unsupported constructs - a lot of unsupported constructs are BIFs and functions in the ``erlang`` module that don't make any sense in this environment. For example the BIF ``erlang:bump_reduction/-0`` only makes sense in the context of the Erlang VM and will never be implemented in LuvvieScript.
+In ``test/supported`` there are a series of Erlang files that contain example code of supported constructs. In ``test/unsupported`` there are a similar set of files of unsupported constructs - a lot of unsupported constructs are BIFs and functions in the ``erlang`` module that don't make any sense in this environment. For example the BIF ``erlang:bump_reduction/0`` only makes sense in the context of the Erlang VM and will never be implemented in LuvvieScript.
 
 The test strategy is this:
 * compile all the files in ``test/supported`` as Erlang
-* execute all the arity/0 functions they export
+* execute all the ``arity/0`` functions they export
 * compile all the files in ``test/supported`` as LuvvieScript
-* execute all the arity/0 functions they export
+* execute all the ``arity/0`` functions they export
 * assert the results are identical
 
-The test suite will be built in two phases - basic test followed by more advanced ones *once we have some full working end-to-end results which include javascript and source maps.
+The test suite will be built in two phases - basic test followed by more advanced ones **once we have some full working end-to-end results which include javascript and source maps**.
 
 Contributing
 ============
