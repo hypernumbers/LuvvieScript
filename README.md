@@ -11,7 +11,7 @@ LuvvieScript is Erlang that compiles to Javascript - it is a lightweight, actor-
 What Are Actors?
 ----------------
 
-The Actor model is a progamming technique where units of concurrency share no state and communicate by sending each other messages. These units of concurrency are properly called ``processes`` (and not threads).
+The Actor model is a progamming technique where units of concurrency share no state and communicate by sending each other messages. These units of concurrency are properly called **processes* (and not threads).
 
 Why LuvvieScript And Not CoffeeScript?
 --------------------------------------
@@ -21,7 +21,7 @@ LuvvieScript is designed to provide an impedance free development environment fo
 Why Is It Called LuvvieScript?
 ------------------------------
 
-Most speakers of English have American English as their first dialect. In Blighty the word ``luvvie`` is slang for actor - allegedly from their habit of not knowing anyone's name and referring to everyone as darling or luvvie. And if I come across another project called somethingerl I will scream, I swear it...
+Most speakers of English have American English as their first dialect. In Blighty the word **luvvie** is slang for actor - allegedly from their habit of not knowing anyone's name and referring to everyone as darling or luvvie. And if I come across another project called **somethingerl** I will scream, I swear it...
 
 Contributing
 ============
@@ -33,32 +33,34 @@ Overview
 
 The LuvvieScript compiler is being built up from the bottom. The logical structure of the LuvvieScript environment is:
 
-    a ``runtime`` running
-          ``behaviours` (eg gen_dom) which are implemented in
-              ``modules`` which consist of
-                  ``functions`` which are composed of
-                      ``clauses`` which are made up of
-                           ``operators`` acting on
-                                `primitives``
+    a RUNTIME running
+          BEHAVIOURS (eg gen_dom) which are implemented in
+              MODULES which consist of
+                  ATTRIBUTES and
+                  FUNCTIONS which are composed of
+                      CLAUSES which are made up of
+                           OPERATORS acting on
+                                PRIMITIVES
 
 LuvvieScript Primitives
 -----------------------
 
-    Erlang/LuvvieSript  Javascript
+    Erlang &             Javascript
+    LuvvieSript
 
-    Integer             <---> Integer
-    Float               <---> Double
-    String              <---> UTF8 string
-    Atom                <---> object ``{atom: Atom}``
-    List                <---> Array
-    Records             <---> Objects
-                              with a helper fn to map position to element name
-    Funs                <---> Funs
-    Tuple               <---> "{tuple: Array}"
-    Dict Of Dicts       <---> Objects/JSON
-                              All Fn calls out to external fns will be cast on return
+    Integer        <---> Integer
+    Float          <---> Double
+    String         <---> UTF8 string
+    Atom           <---> object ``{atom: Atom}``
+    List           <---> Array
+    Records        <---> Objects
+                         with a helper fn to map position to element name
+    Funs           <---> Funs
+    Tuple          <---> "{tuple: Array}"
+    Dict Of Dicts  <---> Objects/JSON
+                         All Fn calls out to external fns will be cast on return
 
-    Binaries           <--->  none
+    Binaries       <--->  none
 
 Development Priorities
 ----------------------
@@ -71,7 +73,7 @@ There are three productions required on compiling Erlang/LuvvieScript to Javascr
 
 The canonical site for information about sourcemaps is https://github.com/mozilla/source-map
 
-The reason for this is the process by which compiled-to-Javascript languages can be debugged in browsers. The debugger steps though the *Javascript* and then uses the sourcemapper information to translate its location back to a position in the original files.
+The reason for this is the process by which compiled-to-Javascript languages can be debugged in browsers. The debugger steps though the **Javascript** and then uses the sourcemapper information to translate its location back to a position in the **original files**.
 
 The Production Chain
 --------------------
@@ -86,16 +88,16 @@ The production process outlined here, although it seems convoluted, is designed 
 
 The process of turninging Erlang/LuvvieScript code into Javascript follows this process:
 
-* the raw Erlang is normalised by Erlang preprocessor to the '.P' form
+* the raw Erlang is normalised by Erlang preprocessor to the ``.P`` form
 
 * the normalised Erlang is compiled to the standard Erlang Abstract Syntax tree (AST) format
-* the normalised AST is compiled to a set of pseudo-tokens which contain the linefile information of the '.P' module they were from
+* the normalised AST is compiled to a set of pseudo-tokens which contain the linefile information of the ``.P`` module they were from
 
-* The normalised Erlang ('.P') is tokenized by the Erlang tokenizer to produce a token output that combines the Erlang symbols with the lines they occurred in the original script.
+* The normalised Erlang (``.P``) is tokenized by the Erlang tokenizer to produce a token output that combines the Erlang symbols with the lines they occurred in the original script.
 
 The two token scripts are processed in sync to generate the javascript and the associated sourcemap.
 
-The '.P' form of the Erlang has the inserted code *reversed out* to generate the source code against which the sourcemap reports.
+The ``.P`` form of the Erlang has the inserted code *reversed out* to generate the source code against which the sourcemap reports.
 
 Another View
 ------------
@@ -132,7 +134,7 @@ This process is best shown with an example. Here is some raw Erlang sourcecode d
 
 ```
 
-This is preprocessed to the '.P' format:
+This is preprocessed to the ``.P`` format:
 
 ```erlang
 
