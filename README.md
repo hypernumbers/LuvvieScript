@@ -303,8 +303,7 @@ The contribution cycle is this:
 * raise an issue of type ``enhancement`` against the test file name
 * fix and raise a pull request
 
-<div style="margin:20px;padding:20px;background-color:#000;color:#fff'>
-<h1>If You Have Read This Far</h1>
-<p>Follow me on Twitter @gordonguthrie</p>
-<p>Fork this repo and get hacking</p>
-</div>
+If You Have Read This Far
+=========================
+Follow me on Twitter @gordonguthrie
+Fork this repo and get hacking
