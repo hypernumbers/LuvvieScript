@@ -302,3 +302,9 @@ The contribution cycle is this:
 * find a file in ``test/supported`` that is not making the appropriate productions and which nobody has claimed (or write one that addresses something none of the existing ones do)
 * raise an issue of type ``enhancement`` against the test file name
 * fix and raise a pull request
+
+<div style="margin:20px;padding:20px;background-color:#000;color:#fff'>
+<h1>If You Have Read This Far</h1>
+<p>Follow me on Twitter @gordonguthrie</p>
+<p>Fork this repo and get hacking</p>
+</div>
