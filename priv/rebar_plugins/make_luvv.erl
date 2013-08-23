@@ -26,7 +26,7 @@ make_luvv(_A, _B) ->
 compile() ->
     code:add_patha("ebin/"),
     {ok, Dir} = file:get_cwd(),
-    Files = filelib:wildcard(Dir ++ "/test/supported/ty*.erl"),
+    Files = filelib:wildcard(Dir ++ "/test/supported/basic_types.erl"),
     Output = [luvviescript:compile(File) || File <- Files],
     % [luvviescript:pretty_print(X) || X <- Output],
     ok.

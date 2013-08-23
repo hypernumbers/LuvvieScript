@@ -303,6 +303,15 @@ The contribution cycle is this:
 * raise an issue of type ``enhancement`` against the test file name
 * fix and raise a pull request
 
+The test files are compile with a rebar plugin.
+
+You run this plugin with the command:
+
+```erlang
+    rebar compile
+    rebar make_luvv
+```
+
 If You Have Read This Far
 =========================
 Follow me on Twitter @gordonguthrie
