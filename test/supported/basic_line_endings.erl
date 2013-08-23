@@ -1,4 +1,4 @@
--module(line_endings).
+-module(basic_line_endings).
 
 -compile(export_all).
 

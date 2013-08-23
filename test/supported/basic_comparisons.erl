@@ -1,4 +1,4 @@
--module(comparisons).
+-module(basic_comparisons).
 
 -compile(export_all).
 

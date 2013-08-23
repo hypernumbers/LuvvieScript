@@ -1,4 +1,4 @@
--module(clauses2).
+-module(basic_clauses2).
 
 -compile(export_all).
 

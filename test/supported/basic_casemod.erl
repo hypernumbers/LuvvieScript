@@ -1,4 +1,4 @@
--module(casemod).
+-module(basic_casemod).
 
 -compile(export_all).
 

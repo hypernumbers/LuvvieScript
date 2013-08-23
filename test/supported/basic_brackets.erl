@@ -1,4 +1,4 @@
--module(brackets).
+-module(basic_brackets).
 
 -compile(export_all).
 %% yargle

@@ -1,4 +1,4 @@
--module(including).
+-module(basic_including).
 
 -compile(export_all).
 

@@ -1,4 +1,4 @@
--module(operators).
+-module(basic_operators).
 
 -compile(export_all).
 

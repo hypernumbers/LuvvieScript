@@ -1,4 +1,4 @@
--module(records).
+-module(basic_records).
 
 -compile(export_all).
 

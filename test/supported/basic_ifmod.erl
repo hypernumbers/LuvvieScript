@@ -1,4 +1,4 @@
--module(ifmod).
+-module(basic_ifmod).
 
 -compile(export_all).
 

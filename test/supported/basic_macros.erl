@@ -1,4 +1,4 @@
--module(macros).
+-module(basic_macros).
 
 -compile(export_all).
 
