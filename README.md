@@ -312,7 +312,13 @@ You run this plugin with the command:
     rebar make_luvv
 ```
 
+Anyone who has a pull request accepted will get a **magnificent** LuvvieScript committers t-shirt comme ça:
+
+<img src='https://raw.github.com/hypernumbers/LuvvieScript/master/priv/images/gordonguthrie.jpg' />
+
+
 If You Have Read This Far
 =========================
 Follow me on Twitter @gordonguthrie
 Fork this repo and get hacking
+
