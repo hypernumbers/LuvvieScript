@@ -332,5 +332,7 @@ If You Have Read This Far
 
 Follow me on Twitter @gordonguthrie
 
-Fork this repo and get hacking
+If you want to be kept in touch then star this repo on github
+
+But mostly, fork this repo and get hacking
 
