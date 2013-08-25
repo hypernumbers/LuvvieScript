@@ -47,9 +47,15 @@ LuvvieScript Primitives
     Erlang &             Javascript
     LuvvieSript
 
-    Integer        <---> Integer
+    Integer        <---> Double
+                         ! Erlang supports big nums
+                         Also Erlang supports radix of 2..36 check in js
     Float          <---> Double
-    String         <---> UTF8 string
+    Char           <---> Double
+    String         <---> Array of UTF16 character points
+                         All fn calls out to external fns will be cast on return
+                         Is this sensible or should be try and use native strings?
+                         Would we need to wrap a cast around all list operations?
     Atom           <---> object {atom: Atom}
     List           <---> Array
     Records        <---> Objects
@@ -319,6 +325,8 @@ Anyone who has a pull request accepted will get a **magnificent** LuvvieScript c
 
 If You Have Read This Far
 =========================
+
 Follow me on Twitter @gordonguthrie
+
 Fork this repo and get hacking
 
