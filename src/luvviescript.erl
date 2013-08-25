@@ -41,32 +41,21 @@
 
 compile(File) ->
     {ok, Syntax} = compile_to_ast(File),
-    io:format("Syntax is ~p~n", [Syntax]),
-    % Str = io_lib:format("~p~n", [Syntax]),
-    % plain_log(Str, "/tmp/syntax.log"),
     {ok, Binary}    = file:read_file(File),
     {ok, Tokens, _} = erl_scan:string(binary_to_list(Binary), 1,
                                       [return_white_spaces, return_comments]),
-    % io:format("Tokens is ~p~n", [Tokens]),
-    % Str2 = io_lib:format("~p~n", [Tokens]),
-    % plain_log(Str2, "/tmp/tokens.log"),
     {ok, _Tokens2} = collect_tokens(Tokens),
     File2 = filename:rootname(filename:basename(File)) ++ ".erl",
     Output = comp2(Syntax, #module{file = File2}, File2, []),
-    % Str3 = io_lib:format("~p~n", [Output]),
-    % plain_log(Str3, "/tmp/output.log"),
-    io:format("Output is ~p~n", [Output]),
     #module{contents = C} = Output,
     Js = make_js_module(C, 0, []),
-    plain_log(io_lib:format(Js, []), "/tmp/file.js"),
-    io:format(Js),
     Js.
 
 make_js_module([], _, Acc) ->
     lists:flatten(lists:reverse(Acc));
 make_js_module([linefeed | T], N, Acc) ->
     NewAcc = indent(N),
-    make_js_module(T, N, [NewAcc, "~n" | Acc]);
+    make_js_module(T, N, [NewAcc, "\n" | Acc]);
 make_js_module([indent | T], N, Acc) ->
     NewAcc = indent(N),
     make_js_module(T, N + 1, [NewAcc | Acc]);
@@ -77,7 +66,7 @@ make_js_module([{_, Tok, _} | T], N, Acc) ->
 
 comp2([], Mod, _OrigF, Acc) ->
     #module{name = ModName} = Mod,
-    Dec = {declaration, ModName ++ "={};~n", nonce},
+    Dec = {declaration, ModName ++ "={};\n", nonce},
     Contents = lists:flatten([Dec | lists:reverse(Acc)]),
     Mod#module{contents = Contents};
 comp2([{function, LineNo, Fn, Arity, Contents} | T], Mod, OrigF, Acc) ->
@@ -182,7 +171,7 @@ make_single_cl_fn(Mod, Fn, File, LineNo) ->
     ].
 
 make_case_cl_fn(Clauses) ->
-    "banjo".
+    {not_written, "banjo", nonce}.
 
 make_params([]) ->
     "";
@@ -213,10 +202,49 @@ make_js(int, {LNo, Int}, OrigF, Acc) ->
     [{int, integer_to_list(Int), {OrigF, LNo}} | Acc];
 make_js(var, {LNo, Symb}, OrigF, Acc) ->
     [{var, atom_to_list(Symb), {OrigF, LNo}} | Acc];
-make_js(op, {Op, LNo, Lhs, Rhs}, OrigF, Acc) when Op == '+' orelse
-                                                  Op == '-' orelse
-                                                  Op == '*' orelse
-                                                  Op == '/' ->
+%% we are already casting ints to floats so the difference between
+%% equals and exactly equals has no meaning
+make_js(op, {Op, LNo, Lhs, Rhs}, OrigF, Acc) when Op == '=='  orelse
+                                                  Op == '=:=' ->
+    %% produce the pseudo-tokens in **REVERSE** order
+    lists:flatten([
+                   lists:reverse(comp_st([Rhs], expression, OrigF, [])),
+                   {op, "===", {OrigF, LNo}},
+                   lists:reverse(comp_st([Lhs], expression, OrigF, []))
+                   | Acc
+                  ]);
+make_js(op, {Op, LNo, Lhs, Rhs}, OrigF, Acc) when Op == 'div' orelse
+                                                  Op == 'rem' ->
+    lists:flatten([
+                   {write_me, "div needs to call math.floor(), etc, etc", nonce}
+                   | Acc
+                  ]);
+%% we are already casting ints to floats so the difference between
+%% not equals and exactly not equals has no meaning
+make_js(op, {Op, LNo, Lhs, Rhs}, OrigF, Acc) when Op == '/='  orelse
+                                                  Op == '=/=' ->
+    %% produce the pseudo-tokens in **REVERSE** order
+    lists:flatten([
+                   lists:reverse(comp_st([Rhs], expression, OrigF, [])),
+                   {op, "!==", {OrigF, LNo}},
+                   lists:reverse(comp_st([Lhs], expression, OrigF, []))
+                   | Acc
+                  ]);
+make_js(op, {Op, LNo, Lhs, Rhs}, OrigF, Acc) when Op == '=<' ->
+    %% produce the pseudo-tokens in **REVERSE** order
+    lists:flatten([
+                   lists:reverse(comp_st([Rhs], expression, OrigF, [])),
+                   {op, "<=", {OrigF, LNo}},
+                   lists:reverse(comp_st([Lhs], expression, OrigF, []))
+                   | Acc
+                  ]);
+make_js(op, {Op, LNo, Lhs, Rhs}, OrigF, Acc) when Op == '+'  orelse
+                                                  Op == '-'  orelse
+                                                  Op == '*'  orelse
+                                                  Op == '<'  orelse
+                                                  Op == '>'  orelse
+                                                  Op == '>=' orelse
+                                                  Op == '/'  ->
     %% produce the pseudo-tokens in **REVERSE** order
     lists:flatten([
                    lists:reverse(comp_st([Rhs], expression, OrigF, [])),
@@ -239,15 +267,15 @@ semi(expression, List) -> List.
 
 compile_to_ast(File) ->
     IncludeDir = filename:dirname(File) ++ "/../include",
-    OutDir     = filename:dirname(File),
+    OutDir     = filename:dirname(File) ++ "/../pbin",
     case compile:file(File, [
                              'P',
                              {i, IncludeDir},
                              {outdir, OutDir}
                             ]) of
-        {ok, []} -> File2 = filename:rootname(File) ++ ".P",
-                    io:format("File2 is ~p~n", [File2]),
-                    epp:parse_file(File2, IncludeDir, []);
+        {ok, []} -> File2 = filename:rootname(filename:basename(File)) ++ ".P",
+                    File3 = OutDir ++ "/" ++ File2,
+                    epp:parse_file(File3, IncludeDir, []);
         error    -> io:format("Cannae compile...~n"),
                     {error, File}
     end.

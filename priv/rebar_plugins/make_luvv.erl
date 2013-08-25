@@ -8,38 +8,63 @@
 -module(make_luvv).
 
 -export([
-         make_luvv/2
+         make_luvv/2,
+         make_tests/2
         ]).
 
 -define(JSDIR,       "js/").
--define(SUPPORTED,   "priv/supported/").
--define(UNSUPPORTED, "priv/unsupported/").
 
-make_luvv(_A, _B) ->
-    case has_js_dir() of
-        true  -> ok = clear_old_js();
-        false -> ok
-    end,
-    ok = filelib:ensure_dir(?JSDIR),
-    ok = compile().
 
-compile() ->
-    code:add_patha("ebin/"),
-    {ok, Dir} = file:get_cwd(),
-    Files = filelib:wildcard(Dir ++ "/test/supported/basic_types.erl"),
-    Output = [luvviescript:compile(File) || File <- Files],
-    % [luvviescript:pretty_print(X) || X <- Output],
+make_tests(_A, _B) ->
+    io:format("in make tests...~n"),
     ok.
 
-clear_old_js() ->
-    case file:list_dir(?JSDIR) of
+make_luvv(_A, _B) ->
+    Dirs = ["test/passing", "test/not_passing"],
+    [compile(X) || X <- Dirs],
+    ok.
+
+compile(Dir) ->
+    SubDirs = ["/js", "/pbin"],
+    [do_housekeeping(Dir ++ X) || X <- SubDirs],
+    code:add_patha("ebin/"),
+    Dir2 = Dir  ++ "/src/",
+    Files = filelib:wildcard(Dir2 ++ "*.erl"),
+    [ok = output(File) || File <- Files],
+    ok.
+
+output(File) ->
+    Output = luvviescript:compile(File),
+    OutputFile = filename:basename(filename:rootname(File)) ++ ".js",
+    OutputDir = filename:dirname(File) ++ "/../js/",
+    ok = write_file(Output, OutputDir ++ OutputFile),
+    ok.
+
+clear_old_files(Dir) ->
+    case file:list_dir(Dir) of
         {error, _}  -> ok; % directory doesn't exist, that's ok
-        {ok, Files} -> [ok = file:delete(?JSDIR ++ X) || X <- Files],
+        {ok, Files} -> [ok = file:delete(Dir ++ "/" ++ X) || X <- Files],
                        ok
     end.
 
-has_js_dir() ->
-    case file:list_dir(?JSDIR) of
+has_dir(Dir) ->
+    case file:list_dir(Dir) of
         {error, _} -> false;
         {ok, _}    -> true
+    end.
+
+do_housekeeping(Dir) ->
+    case has_dir(Dir) of
+        true  -> ok = clear_old_files(Dir);
+        false -> filelib:ensure_dir(Dir)
+    end.
+
+write_file(String, File) ->
+    _Return = filelib:ensure_dir(File),
+    case file:open(File, [append]) of
+        {ok, Id} ->
+            io:fwrite(Id, "~s~n", [String]),
+            file:close(Id);
+        _ ->
+            error
     end.

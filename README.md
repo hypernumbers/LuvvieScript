@@ -318,6 +318,10 @@ You run this plugin with the command:
     rebar make_luvv
 ```
 
+``rebar make_luvv`` compiles all the erlang files in ``test/passing/src`` and ``test/not_passing/src`` into the corresponding ``.js`` files in ``test/*/js``
+
+At the moment, of course, these are only fragement files.
+
 Anyone who has a pull request accepted will get a **magnificent** LuvvieScript committers t-shirt comme ça:
 
 <img src='https://raw.github.com/hypernumbers/LuvvieScript/master/priv/images/gordonguthrie.jpg' />
