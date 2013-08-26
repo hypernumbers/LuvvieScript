@@ -40,11 +40,11 @@
 %-define(INDENT, "zzzz").
 
 compile(File) ->
-    {ok, Syntax} = compile_to_ast(File),
+    {ok, Syntax}    = compile_to_ast(File),
     {ok, Binary}    = file:read_file(File),
     {ok, Tokens, _} = erl_scan:string(binary_to_list(Binary), 1,
                                       [return_white_spaces, return_comments]),
-    {ok, _Tokens2} = collect_tokens(Tokens),
+    {ok, _Tokens2}  = collect_tokens(Tokens),
     File2 = filename:rootname(filename:basename(File)) ++ ".erl",
     Output = comp2(Syntax, #module{file = File2}, File2, []),
     #module{contents = C} = Output,
@@ -267,10 +267,10 @@ semi(expression, List) -> List.
 
 compile_to_ast(File) ->
     IncludeDir = filename:dirname(File) ++ "/../include",
-    OutDir     = filename:dirname(File) ++ "/../pbin",
+    OutDir     = filename:dirname(File) ++ "/../psrc",
     case compile:file(File, [
                              'P',
-                             {i, IncludeDir},
+                             {i,      IncludeDir},
                              {outdir, OutDir}
                             ]) of
         {ok, []} -> File2 = filename:rootname(filename:basename(File)) ++ ".P",

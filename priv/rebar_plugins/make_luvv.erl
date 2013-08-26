@@ -25,7 +25,7 @@ make_luvv(_A, _B) ->
     ok.
 
 compile(Dir) ->
-    SubDirs = ["/js", "/pbin"],
+    SubDirs = ["/js", "/psrc"],
     [do_housekeeping(Dir ++ X) || X <- SubDirs],
     code:add_patha("ebin/"),
     Dir2 = Dir  ++ "/src/",
@@ -56,7 +56,7 @@ has_dir(Dir) ->
 do_housekeeping(Dir) ->
     case has_dir(Dir) of
         true  -> ok = clear_old_files(Dir);
-        false -> filelib:ensure_dir(Dir)
+        false -> filelib:ensure_dir(Dir ++ "/nonce.file")
     end.
 
 write_file(String, File) ->
