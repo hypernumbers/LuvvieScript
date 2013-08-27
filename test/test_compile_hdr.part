@@ -1,0 +1,26 @@
+-compile(export_all).
+-include("ct.hrl").
+
+-define(TESTFN(Fn, Name, Module),
+       Fn(Config) ->
+               File = atom_to_list(Name) ++ "/js/"
+                   ++ atom_to_list(Module) ++ ".js",
+               Cmd = "rhino ../../test/" ++ File,
+               {ok, Dir} = file:get_cwd(),
+               case os:cmd(Cmd) of
+                   []    -> ok;
+                   Other -> io:format("Compiling ~p resulted in ~p~n",
+                                      [File, Other]),
+                            exit(compile_failed)
+               end).
+
+init_per_suite(Config) ->
+    Config.
+
+init_per_testcase(_TestCase, Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+end_per_testcase(_TestCase, _Config) ->
+    ok.
