@@ -8,3 +8,4 @@ ebin/
 js/
 *~
 erl_crash.dump
+test/*_SUITE.erl
