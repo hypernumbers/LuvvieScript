@@ -36,6 +36,11 @@
           contents :: list()
          }).
 
+-record(statement, {
+          contents = [] :: list()
+         }).
+
+-define(LINEENDING, {line_ending, ";", nonce}).
 -define(INDENT, "    ").
 %-define(INDENT, "zzzz").
 
@@ -52,21 +57,37 @@ compile(File) ->
     Js.
 
 make_js_module([], _, Acc) ->
-    lists:flatten(lists:reverse(Acc));
+    lists:flatten(lists:reverse(Acc)) ++ "\n\n";
 make_js_module([linefeed | T], N, Acc) ->
-    NewAcc = indent(N),
-    make_js_module(T, N, [NewAcc, "\n" | Acc]);
+    make_js_module(T, N, ["\n" | Acc]);
 make_js_module([indent | T], N, Acc) ->
-    NewAcc = indent(N),
-    make_js_module(T, N + 1, [NewAcc | Acc]);
+    make_js_module(T, N + 1, Acc);
 make_js_module([deindent | T], N, Acc) ->
     make_js_module(T, N - 1, Acc);
+make_js_module([#statement{contents = C} | T], N, Acc) ->
+    Indent = indent(N),
+    make_js_module(T, N, [Indent ++ make_js_statement(C, []) | Acc]);
+make_js_module([{_, [], _} | T], N, Acc) ->
+    make_js_module(T, N, Acc);
 make_js_module([{_, Tok, _} | T], N, Acc) ->
-    make_js_module(T, N, [Tok | Acc]).
+    Indent = indent(N),
+    make_js_module(T, N, [Indent ++ Tok | Acc]).
+
+make_js_statement([], Acc) ->
+    lists:flatten(lists:reverse(Acc)) ++ "\n";
+make_js_statement([#statement{contents = C} | T], Acc) ->
+    NewAcc = make_js_module(C, 0, []),
+    make_js_statement(T, [NewAcc | Acc]);
+make_js_statement([{_, Tok, _} | T], Acc) ->
+    make_js_statement(T, [Tok | Acc]);
+make_js_statement([Indentation | T], Acc) ->
+    io:format("Unhandled indentation in make js statement ~p~n",
+              [Indentation]),
+    make_js_statement(T, Acc).
 
 comp2([], Mod, _OrigF, Acc) ->
     #module{name = ModName} = Mod,
-    Dec = {declaration, ModName ++ "={};\n", nonce},
+    Dec = {declaration, ModName ++ "={};\n\n", nonce},
     Contents = lists:flatten([Dec | lists:reverse(Acc)]),
     Mod#module{contents = Contents};
 comp2([{function, LineNo, Fn, Arity, Contents} | T], Mod, OrigF, Acc) ->
@@ -106,42 +127,45 @@ comp2([H | T], Mod, OrigF, Acc) ->
 comp_cl([], _OrigF, Acc) ->
     lists:reverse(Acc);
 comp_cl([{clause, LineNo, Params, Guards, Contents} | T], OrigF, Acc) ->
-    C = comp_st(Contents, clause, OrigF, []),
+    C = comp_st(Contents, statement, OrigF, []),
     NewAcc = #clause{params   = Params,
                      guards   = Guards,
                      line_no  = LineNo,
-                     contents = C},
+                     contents = add_return(C)},
     comp_cl(T, OrigF, [NewAcc | Acc]).
 
-comp_st([], _, _OrigF, Acc) ->
+comp_st([], _, _Orig, Acc) ->
     lists:reverse(Acc);
 comp_st([{call, _LNo, {atom, LNo, Fn}, Args} | T], Context, OrigF, Acc) ->
-    NewAcc = make_js(fn, {LNo, Fn, Args}, OrigF, Acc),
-    comp_st(T, Context, OrigF, semi(Context, NewAcc));
+    NewAcc = make_js(fn, {LNo, Fn, Args}, OrigF, []),
+    comp_st(T, Context, OrigF, [wrap(Context, NewAcc) | Acc]);
 comp_st([{string, LNo, String} | T], Context, OrigF, Acc) ->
-    NewAcc = make_js(string, {LNo, String}, OrigF, Acc),
-    comp_st(T, Context, OrigF, semi(Context, NewAcc));
+    NewAcc = make_js(string, {LNo, String}, OrigF, []),
+    comp_st(T, Context, OrigF, [wrap(Context, NewAcc) | Acc]);
 comp_st([{atom, LNo, Atom} | T], Context, OrigF, Acc) ->
-    NewAcc = make_js(atom, {LNo, Atom}, OrigF, Acc),
-    comp_st(T, Context, OrigF, semi(Context, NewAcc));
+    NewAcc = make_js(atom, {LNo, Atom}, OrigF, []),
+    comp_st(T, Context, OrigF, [wrap(Context, NewAcc) | Acc]);
 comp_st([{float, LNo, Float} | T], Context, OrigF, Acc) ->
-    NewAcc = make_js(float, {LNo, Float}, OrigF, Acc),
-    comp_st(T, Context, OrigF, semi(Context, NewAcc));
+    NewAcc = make_js(float, {LNo, Float}, OrigF, []),
+    comp_st(T, Context, OrigF, [wrap(Context, NewAcc) | Acc]);
 comp_st([{integer, LNo, Int} | T], Context, OrigF, Acc) ->
-    NewAcc = make_js(int, {LNo, Int}, OrigF, Acc),
-    comp_st(T, Context, OrigF, semi(Context, NewAcc));
+    NewAcc = make_js(int, {LNo, Int}, OrigF, []),
+    comp_st(T, Context, OrigF, [wrap(Context, NewAcc) | Acc]);
 comp_st([{var, LNo, Symb} | T], Context, OrigF, Acc) ->
-    NewAcc = make_js(var, {LNo, Symb}, OrigF, Acc),
-    comp_st(T, Context, OrigF, semi(Context, NewAcc));
+    NewAcc = make_js(var, {LNo, Symb}, OrigF, []),
+    comp_st(T, Context, OrigF, [wrap(Context, NewAcc) | Acc]);
 %% comp_st([[] | T], Context, OrigF, Acc) ->
 %%     NewAcc = make_js(empty_list, nonce, OrigF, Acc),
-%%     comp_st(T, Context, OrigF, semi(Context, NewAcc));
+%%     comp_st(T, Context, OrigF, wrap(Context, NewAcc));
 comp_st([{op, LNo, Op, Lhs, Rhs} | T], Context, OrigF, Acc) ->
-    NewAcc = make_js(op, {Op, LNo, Lhs, Rhs}, OrigF, Acc),
-    comp_st(T, Context, OrigF, semi(Context, NewAcc));
+    NewAcc = make_js(op, {Op, LNo, Lhs, Rhs}, OrigF, []),
+    comp_st(T, Context, OrigF, [wrap(Context, NewAcc) | Acc]);
 comp_st([{match, LNo, Lhs, Rhs} | T], Context, OrigF, Acc) ->
-    NewAcc = make_js(match, {LNo, Lhs, Rhs}, OrigF, Acc),
-    comp_st(T, Context, OrigF, semi(Context, NewAcc));
+    NewAcc = make_js(match, {LNo, Lhs, Rhs}, OrigF, []),
+    comp_st(T, Context, OrigF, [wrap(Context, NewAcc) | Acc]);
+comp_st([{'case', LNo, Statement, Clauses} | T], Context, OrigF, Acc) ->
+    NewAcc = make_js('case', {switch, LNo, Statement, Clauses}, OrigF, []),
+    comp_st(T, Context, OrigF, [wrap(Context, NewAcc) | Acc]);
 comp_st([H | T], Context, OrigF, Acc) ->
     io:format("Handle (3) is ~p~n", [H]),
     comp_st(T, Context, OrigF, Acc).
@@ -187,7 +211,7 @@ make_js(fn, {LNo, Fn, Args}, OrigF, Acc) ->
     %% produce the pseudo-tokens in **REVERSE** order
     lists:flatten([
                    {close, ")", {OrigF, LNo}},
-                   lists:reverse(comp_st([Args], expression, OrigF, [])),
+                   lists:reverse(comp_st(Args, expression, OrigF, [])),
                    {open, "(", {OrigF, LNo}},
                    {fn, atom_to_list(Fn), {OrigF, LNo}}
                    | Acc
@@ -259,11 +283,26 @@ make_js(match, {LNo, Lhs, Rhs}, OrigF, Acc) ->
                    {match, "=", {OrigF, LNo}},
                    lists:reverse(comp_st([Lhs], expression, OrigF, []))
                    | Acc
+                  ]);
+make_js('case', {Op, LineNo, Statement, Clauses}, OrigF, Acc) ->
+    %% produce the pseudo-tokens in **REVERSE** order
+    lists:flatten([
+                   {close_curlies, "}", nonce},
+                   deindent,
+                   {write_me, "something, something clauses in case...", nonce},
+                   indent,
+                   linefeed,
+                   {open_curlies, "{", nonce},
+                   {close_brackets, ")", nonce},
+                   lists:reverse(comp_st([Statement], expression, OrigF, [])),
+                   {open_brackets, "(", nonce},
+                   {'case', "switch ", {OrigF, LineNo}}
                   ]).
 
 %% produce the pseudo-tokens in **REVERSE** order
-semi(clause,     List) -> [linefeed, {linending, ";", nonce} | List];
-semi(expression, List) -> List.
+wrap(statement,  List) -> Body = lists:reverse([?LINEENDING | List]),
+                          #statement{contents = Body};
+wrap(expression, List) -> List.
 
 compile_to_ast(File) ->
     IncludeDir = filename:dirname(File) ++ "/../include",
@@ -279,6 +318,24 @@ compile_to_ast(File) ->
         error    -> io:format("Cannae compile...~n"),
                     {error, File}
     end.
+
+add_return([]) ->
+    io:format("Something is wrong no contents for a return~n"),
+    [];
+add_return(Contents) ->
+    [Last | Tser] = lists:reverse(Contents),
+    Last2 = add_r2(Last),
+    lists:flatten(lists:reverse([Last2 | Tser])).
+
+add_r2(#statement{contents = List}) ->
+    #statement{contents = [{return, "return ", nonce} | List]}.
+
+make_lines([], Acc1, Acc2) ->
+    lists:reverse(Acc1) ++ [{return, "return ", nonce}] ++ lists:reverse(Acc2);
+make_lines([?LINEENDING | T], Acc1, Acc2) ->
+    make_lines(T, [], [[?LINEENDING | Acc1] | Acc2]);
+make_lines([H | T], Acc1, Acc2) ->
+    make_lines(T, [H | Acc1], Acc2).
 
 collect_tokens(List) -> {ok, col2(List, 1, [], [])}.
 

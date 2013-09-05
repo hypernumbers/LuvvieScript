@@ -1,6 +1,7 @@
 %%% @author    Gordon Guthrie
 %%% @copyright (C) 2013, Gordon Guthrie
-%%% @doc       This script compiles Erlang to Javascript
+%%% @doc       This script comples Erlang to Javascript    io:format("NewAcc is ~p~n", [NewAcc]),
+
 %%%
 %%% @end
 %%% Created :  15 Aug 2013 by gordonguthrie@backawinner.gg
@@ -20,14 +21,14 @@ make_tests(_A, _B) ->
     ok.
 
 make_tests(Dir) ->
-    SubDirs = ["/ebin", "/test"],
+    SubDirs = ["/ebin"],
     [do_housekeeping(Dir ++ X) || X <- SubDirs],
     code:add_patha(Dir ++ "/ebin/"),
     Dir2 = Dir  ++ "/src/",
     Files = filelib:wildcard(Dir2 ++ "*.erl"),
     [ok = compile_erlang(File) || File <- Files],
     Modules = [list_to_atom(filename:rootname(filename:basename(X)))
-              || X <- Files],
+               || X <- Files],
     ok = load_beam_files(Modules),
     ok = make_compile_tests(Modules, Dir),
     Tests = [get_tests(X) || X <- Modules],
@@ -93,10 +94,14 @@ compile(Dir) ->
     code:add_patha("ebin/"),
     Dir2 = Dir  ++ "/src/",
     Files = filelib:wildcard(Dir2 ++ "*.erl"),
-    [ok = compile(File) || File <- Files],
+    [ok = output(File) || File <- Files],
     ok.
 
 output(File) ->
+    io:format("******************************~n" ++
+                  "Compiling ~p~n" ++
+                  "******************************~n",
+              [File]),
     Output = luvviescript:compile(File),
     OutputFile = filename:basename(filename:rootname(File)) ++ ".js",
     OutputDir = filename:dirname(File) ++ "/../js/",
