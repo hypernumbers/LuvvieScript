@@ -1,21 +1,21 @@
 %%% @author    Gordon Guthrie
 %%% @copyright (C) 2013, Gordon Guthrie
-%%% @doc       This script compiles Erlang to Javascript
+%%% @doc       This script makes common test suites
 %%%
 %%% @end
 %%% Created :  15 Aug 2013 by gordonguthrie@backawinner.gg
 
--module(make_luvv).
+-module(make_tests).
 
 -export([
-         make_luvv/2
+         make_tests/2
         ]).
 
 -define(JSDIR,     "js/").
 -define(TESTDIRS,  ["test/passing", "test/not_passing"]).
 
-make_luvv(_A, _B) ->
+make_tests(_A, _B) ->
     code:add_patha("./ebin"),
-    [ok = make_utils:compile(X) || X <- ?TESTDIRS],
+    [ok = make_utils:make_tests(X) || X <- ?TESTDIRS],
     ok.
 
