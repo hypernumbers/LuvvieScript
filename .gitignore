@@ -9,3 +9,5 @@ js/
 *~
 erl_crash.dump
 test/*_SUITE.erl
+priv/prezi/
+logs/
