@@ -7,6 +7,8 @@
                    ++ atom_to_list(Module) ++ ".js",
                Cmd = "rhino ../../test/" ++ File,
                {ok, Dir} = file:get_cwd(),
+               io:format("Cmd is ~p~n", [Cmd]),
+               io:format("Dir is ~p~n", [Dir]),
                case os:cmd(Cmd) of
                    []    -> ok;
                    Other -> io:format("Compiling ~p resulted in ~p~n",
@@ -22,5 +24,6 @@ init_per_testcase(_TestCase, Config) ->
 
 end_per_suite(_Config) ->
     ok.
+
 end_per_testcase(_TestCase, _Config) ->
     ok.

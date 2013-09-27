@@ -27,6 +27,18 @@ Contributing
 
 Contributing to LuvvieScript is easy - understand how the project is developing and then get cracking. The next few sections outline what you need to know, and then at the end there is a getting started section.
 
+Modailities
+===========
+
+To make it easier for non-Erlang programmers to join in this project it is written in Literate Erlang and not plain Erlang.
+
+Literate Erlang is designed to work better in GitHub - the source code is properly readable - it is basically Erlang embedded inside Markdown.
+
+Compiling Literate Erlang is a two part process:
+``rebar compile_literate`` converts the Literate Erlang in ``src_md/`` and ``include_md`` into its plain Erlang equivalents in ``src/`` and ``include/``. The plain Erlang can then be compiled using ``rebar compile``.
+
+Please see the README of Literate Erlang at http://github.com/hypernumbers/literate-erlang
+
 Overview
 --------
 
@@ -80,29 +92,27 @@ The canonical site for information about sourcemaps is https://github.com/mozill
 
 The reason for this is the process by which compiled-to-Javascript languages can be debugged in browsers. The debugger steps though the **Javascript** and then uses the sourcemapper information to translate its location back to a position in the **original files**.
 
+General Overview
+----------------
+
+The Luvviescript toolchain compiles Erlang to Javascript in a three step process:
+* normal Erlang syntax tools convert the Erlang to a standard Erlang AST
+* the core luvviescript libraries decorate that AST with line/column/file information and then transpose it to the Javascript AST defined by the Mozilla Parser API (ADD REF)
+* standard Javascript tools (emcodegen.js and sourcemap.js) convert that Javascript AST to runnable Javascript and a Source Mapping
+
+The substantial development work in this libraries is therefore the AST to AST transformation.
+
 The Production ToolChain
 ------------------------
 
-The production toolchain uses normal Erlang syntax tools to process and validate the Erlang onto a standard Erlang Abstract Syntax tree - which is then compiled to Javascript.
+The production toolchain uses normal Erlang syntax tools to process and validate the Erlang onto a standard Erlang Abstract Syntax tree. That tree is deficient for our purposes:
+* each element is only decorated with the **line number** in which it occurs in the original code whereas the source mapping files need **column information** as well.
 
-This process has a substantial problem that need to be addressed:
-
-* normal Erlang syntax tools produce intermediate forms that are decorated with the **line number** they occur on in the original code whereas the source mapping files need **column information** as well.
-
-The production process outlined here, although it seems convoluted, is designed to address this problems and generate the appropiate 3 productions.
-
-The process of turninging Erlang/LuvvieScript code into Javascript follows this process:
-
-* the raw Erlang is normalised by Erlang preprocessor to the ``.P`` form
-
+In order to generate the appropriate Source Map info the following process is implemented:
+* the raw Erlang is normalised by Erlang preprocessor to the ``.P`` form - this is a standard format with reliable indenting - macros are expanded and include files are incorporated
 * the normalised Erlang is compiled to the standard Erlang Abstract Syntax tree (AST) format
-* the normalised AST is compiled to a set of pseudo-tokens which contain the linefile information of the ``.P`` module they were from
-
-* The normalised Erlang (``.P``) is tokenized by the Erlang tokenizer to produce a token output that combines the Erlang symbols with the lines they occurred in the original script.
-
-The two token scripts are processed in sync to generate the javascript and the associated sourcemap.
-
-The ``.P`` form of the Erlang has the inserted code *reversed out* to generate the source code against which the sourcemap reports.
+* the normalised AST is subject to a tranformation that adds the filename, lineno and columnno info
+* that decorated Erlang AST is transformed into the Javascript Parser API AST which is then passed on to Javascript tools to generate the actual Javascript.
 
 The Production Toolchain - Another View
 ---------------------------------------
@@ -220,7 +230,7 @@ The Erlang AST to which this has been compiled is a Lisp dialect, as shown in th
          [{clause,14,[],[],
 ```
 
-Once this has been transformed so the line numbers have been replaced by a tuple of file name and line no, it can be **translated** into javascript - the compilation step is fairly trivial.
+Once this has been transformed so the line numbers have been replaced by a tuple of file name, line no and column no, it can be **translated** into the Javascript AST.
 
 At the moment the javascript being produced is only fragmentary, but these fragments can be used to demonstrate the intermediate pseudo-tokens.
 
@@ -262,25 +272,6 @@ This is turned into javascript pseudo-tokens as shown below:
      {linending,";~n",nonce},
      ...
      {linending,";~n",nonce}]}]}]}
-```
-
-These pseudo-tokens can be turned into Javascript trivially (with an appropriate indentation). By matching these pseudo-tokens with the original token stream the sourcemap can be generated. The original Erlang tokens for this clause being:
-
-```erlang
-    {var,6,'A'},
-    {white_space,6,"  "},
-    {'=',6},
-    {white_space,6," "},
-    {integer,6,1},
-    {',',6},
-    {white_space,6,"\n    "},
-    {var,7,'B'},
-    {white_space,7,"  "},
-    {'=',7},
-    {white_space,7," "},
-    {float,7,2.3},
-    {',',7},
-    ...
 ```
 
 Towards A Test Suite
