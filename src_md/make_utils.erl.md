@@ -1,20 +1,22 @@
   @author vagrant <vagrant@erlang-wtd.dev>
   @copyright (C) 2013, vagrant
   @doc utils for rebar to call from plugins
- 
+
   @end
   Created :  5 Sep 2013 by vagrant <vagrant@erlang-wtd.dev>
- 
+
 ```erlang
     -module(make_utils).
 
     -export([
              compile/1,
-             make_tests/1
+             compile/2,
+             make_tests/1,
+             write_file/2
             ]).
 
     make_tests(Dir) ->
-        SubDirs = ["/ebin"],
+        SubDirs = ["/ebin", "/debug"],
         [do_housekeeping(Dir ++ X) || X <- SubDirs],
         code:add_patha(Dir ++ "/ebin/"),
         Dir2 = Dir  ++ "/src/",
@@ -78,24 +80,22 @@
         ok.
 
     compile(Dir) ->
-        SubDirs = ["/js", "/psrc"],
+        compile(Dir, production).
+
+    compile(Dir, Environment) ->
+        SubDirs = ["/js", "/psrc", "/debug"],
         [do_housekeeping(Dir ++ X) || X <- SubDirs],
         code:add_patha("ebin/"),
         Dir2 = Dir  ++ "/src/",
         Files = filelib:wildcard(Dir2 ++ "*.erl"),
-        [ok = output(File) || File <- Files],
+        [ok = output(File, Environment) || File <- Files],
         ok.
 
-    output(File) ->
-        io:format("******************************~n" ++
-                      "Compiling ~p~n" ++
-                      "******************************~n",
-                  [File]),
-        Output = luvviescript:compile(File),
+    output(File, Environment) ->
+        Output = luvviescript:compile(File, Environment),
         OutputFile = filename:basename(filename:rootname(File)) ++ ".js",
         OutputDir = filename:dirname(File) ++ "/../js/",
-        ok = write_file(Output, OutputDir ++ OutputFile),
-        ok.
+        ok = write_file(Output, OutputDir ++ OutputFile).
 
     clear_old_files(Dir) ->
         case file:list_dir(Dir) of
@@ -116,11 +116,11 @@
             false -> filelib:ensure_dir(Dir ++ "/nonce.file")
         end.
 
-    write_file(String, File) ->
+    write_file(Term, File) ->
         _Return = filelib:ensure_dir(File),
         case file:open(File, [write]) of
             {ok, Id} ->
-                io:fwrite(Id, "~s~n", [String]),
+                io:fwrite(Id, "~p~n", [Term]),
                 file:close(Id);
             _ ->
                 error

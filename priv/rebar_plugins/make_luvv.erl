@@ -16,6 +16,6 @@
 
 make_luvv(_A, _B) ->
     code:add_patha("./ebin"),
-    [ok = make_utils:compile(X) || X <- ?TESTDIRS],
+    [ok = make_utils:compile(X, debug) || X <- ?TESTDIRS],
     ok.
 
