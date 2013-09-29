@@ -11,3 +11,11 @@ erl_crash.dump
 test/*_SUITE.erl
 priv/prezi/
 logs/
+src_md/.erl
+include_md/.hrl
+test/not_passing/debug/
+*.ast
+*.tks
+*.tks2
+src/
+include/
