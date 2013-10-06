@@ -17,5 +17,5 @@ test/not_passing/debug/
 *.ast
 *.tks
 *.tks2
-src/
+*.P2
 include/
