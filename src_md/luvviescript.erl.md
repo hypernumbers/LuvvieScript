@@ -18,19 +18,15 @@
     -define(LINEENDING, {line_ending, ";", nonce}).
     -define(INDENT, "    ").
 
-```
-```
-  -define(INDENT, "zzzz").
-
-```erlang
     compile(File) ->
         compile(File, production).
 
     compile(File, Environment) ->
+        {ok, DotP2} = make_dot_P(File),
+        ok = maybe_write(Environment, File, DotP2, ".P2"),
         {ok, Syntax} = compile_to_ast(File),
         ok = maybe_write(Environment, File, Syntax, ".ast"),
-        {ok, Binary} = read_dot_P_file(File),
-        {ok, Tokens, _} = erl_scan:string(binary_to_list(Binary), 1,
+        {ok, Tokens, _} = erl_scan:string(lists:flatten(DotP2), 1,
                                           [
                                            return_white_spaces,
                                            return_comments,
@@ -39,53 +35,92 @@
         ok = maybe_write(Environment, File, Tokens, ".tks"),
         {ok, Tokens2} = collect_tokens(Tokens),
         ok = maybe_write(Environment, File, Tokens2, ".tks2"),
-        {_Tokens3, Merged} = merge(Syntax, Tokens2, []),
+        {Merged, _Tokens3} = merge(Syntax, Tokens2, []),
         ok = maybe_write(Environment, File, Merged, ".ast2"),
         ok.
 
-    merge([], Tokens, Acc) ->
-        {Tokens, lists:reverse(Acc)};
-    merge([{function, Line, Fn, N, Contents} | T], Tokens, Acc) ->
-        {Details, NewTokens} = get_details(Tokens, Line, {function, Fn}),
-        {NewContents, NewTokens2} = merge(Contents, NewTokens, []),
+    merge([], Tks, Acc) ->
+        {lists:reverse(Acc), Tks};
+    merge([{function, L, Fn, N, Contents} | T], Tks, Acc) ->
+        {Details,     NewTks}  = get_details(Tks, L, {function, Fn}),
+        {NewContents, NewTks2} = merge(Contents, NewTks, []),
         NewFn = {function, Details, Fn, N, NewContents},
-        merge(T, NewTokens2, [NewFn | Acc]);
-    merge([{cons, Line, Head, Tail} | T], Tokens, Acc) ->
-        {NewHead, NewTokens}  = merge([Head], Tokens,    []),
-        {NewTail, NewTokens2} = merge([Tail], NewTokens, []),
-        NewCons = {cons, {Line, none}, NewHead, NewTail},
-        merge(T, NewTokens2, [NewCons | Acc]);
-    merge([{Type, Line, Val} | T], Tokens, Acc)
+        merge(T, NewTks2, [NewFn | Acc]);
+    merge([{cons, L, Head, Tail} | T], Tks, Acc) ->
+        {NewHead, NewTks}  = merge([Head], Tks, []),
+        {NewTail, NewTks2} = merge([Tail], NewTks, []),
+        NewCons = {cons, {L, none}, NewHead, NewTail},
+        merge(T, NewTks2, [NewCons | Acc]);
+    merge([{match, L, Left, Right} | T], Tks, Acc) ->
+        {Details, TksA} = get_details(Tks, L, {match, "="}),
+        {NewLeft,  NewTks}  = merge([Left], TksA, []),
+        {NewRight, NewTks2} = merge([Right], NewTks, []),
+        Match = {match, Details, NewLeft, NewRight},
+        merge(T, NewTks2, [Match | Acc]);
+    merge([{op, L, Type, Expr} | T], Tks, Acc)
+      when Type =:= '+' orelse % unary plus
+           Type =:= '-' ->     % unary minus
+        {Details, NewTks} = get_details(Tks, L, {op, Type}),
+        {NewExpr, NewTks2} = merge([Expr], NewTks,  []),
+        merge(T, NewTks2, [{op, Details, Type, NewExpr} | Acc]);
+    merge([{op, L, Type, LExpr, RExpr} | T], Tks, Acc)
+      when Type =:= '+'   orelse
+           Type =:= '-'   orelse
+           Type =:= '/'   orelse
+           Type =:= '*'   orelse
+           Type =:= 'rem' orelse
+           Type =:= 'div' orelse
+           Type =:= '=='  orelse
+           Type =:= '/='  orelse
+           Type =:= '=:=' orelse
+           Type =:= '=/=' orelse
+           Type =:= '>'   orelse
+           Type =:= '<'   orelse
+           Type =:= '=<'  orelse
+           Type =:= '>='  ->
+        {Details, NewTksA} = get_details(Tks, L, {op, Type}),
+        {NewLExpr, NewTks} = merge([LExpr], NewTksA,  []),
+        {NewRExpr, NewTks2} = merge([RExpr], NewTks,  []),
+        NewOp = {op, Details, Type, NewLExpr, NewRExpr},
+        merge(T, NewTks2, [NewOp | Acc]);
+    merge([{Type, L, Val} | T], Tks, Acc)
       when Type =:= char    orelse
            Type =:= float   orelse
            Type =:= var     orelse
            Type =:= integer orelse
-           Type =:= string ->
-        {Details, NewTokens} = get_details(Tokens, Line, {Type, Val}),
-        merge(T, NewTokens, [{Type, Details, Val} | Acc]);
-    merge([{clause, L, Args, Guards, Contents} | T], Tokens, Acc) ->
-        {NewArgs,     NewTokens}  = merge(Args,     Tokens,     []),
-        {NewGuards,   NewTokens2} = merge(Guards,   NewTokens,  []),
-        {NewContents, NewTokens3} = merge(Contents, NewTokens2, []),
+           Type =:= string  orelse
+           Type =:= atom    ->
+        {Details, NewTks} = get_details(Tks, L, {Type, Val}),
+        merge(T, NewTks, [{Type, Details, Val} | Acc]);
+    merge([{tuple, L, Vals} | T], Tks, Acc) ->
+        {NewVals, NewTks} = merge(Vals, Tks,  []),
+        merge(T, NewTks, [{tuple, {L, none}, NewVals} | Acc]);
+    merge([{'case', L, Expr, Clauses} | T], Tks, Acc) ->
+        {NewExpr, NewTks} = merge([Expr], Tks,  []),
+        {NewClauses, NewTks2} = merge(Clauses, NewTks,  []),
+        NewCase = {'case', {L, none}, NewExpr, NewClauses},
+        merge(T, NewTks2, [NewCase | Acc]);
+    merge([{clause, L, Args, Guards, Contents} | T], Tks, Acc) ->
+        {NewArgs,     NewTks}  = merge(Args, Tks,  []),
+        {NewGuards,   NewTks2} = merge(Guards, NewTks,  []),
+        {NewContents, NewTks3} = merge(Contents, NewTks2, []),
         NewClause = {clause, {L, none}, NewArgs, NewGuards, NewContents},
-        merge(T, NewTokens3, [NewClause | Acc]);
-    merge([{Type, L} | T], Tokens, Acc)
+        merge(T, NewTks3, [NewClause | Acc]);
+    merge([{Type, L} | T], Tks, Acc)
       when Type =:= eof orelse
            Type =:= nil ->
-        merge(T, Tokens, [{Type, {L, none}} | Acc]);
-    merge([{attribute, L, A, B} | T], Tokens, Acc) ->
-        merge(T, Tokens, [{attributes, {L, 0}, A, B} | Acc]);
-    merge([H | T], Tokens, Acc) ->
-        io:format("H is ~p~n", [H]),
-        merge(T, Tokens, [H | Acc]).
+        merge(T, Tks, [{Type, {L, none}} | Acc]);
+    merge([{attribute, L, A, B} | T], Tks, Acc) ->
+        merge(T, Tks, [{attributes, {L, none}, A, B} | Acc]);
+    merge([H | T], Tks, Acc) ->
+        merge(T, Tks, [H | Acc]).
 
     get_details(Tokens, Ln, {_Type, Name}) ->
         case lists:keyfind(Ln, 1, Tokens) of
             false ->
-                io:format("no tokens for ~p (~p}~n", [Ln, Name]),
+                io:format("no tokens for ~p ~p~n", [Ln, Name]),
                 {{Ln, none}, Tokens};
             {Ln, Tks} ->
-                io:format("Tks is ~p~nName is ~p~n", [Tks, Name]),
                 case lists:keyfind(Name, 1, Tks) of
                     false ->
                         {{Ln, none}, Tokens};
@@ -96,26 +131,36 @@
                 end
         end.
 
-    read_dot_P_file(File) ->
-        PDir = filename:dirname(File) ++ "/../psrc/",
-        File2 = filename:rootname(filename:basename(File)) ++ ".P",
-        file:read_file(PDir ++ File2).
-
-    compile_to_ast(File) ->
+    make_dot_P(File) ->
         IncludeDir = filename:dirname(File) ++ "/../include",
-        OutDir     = filename:dirname(File) ++ "/../psrc",
+        PDir       = filename:dirname(File) ++ "/../psrc",
         case compile:file(File, [
                                  'P',
                                  {i,      IncludeDir},
-                                 {outdir, OutDir}
+                                 {outdir, PDir}
                                 ]) of
             {ok, []} -> File2 = filename:rootname(filename:basename(File)) ++ ".P",
-                        File3 = OutDir ++ "/" ++ File2,
-                        epp:parse_file(File3, IncludeDir, []);
+                        case file:open(PDir ++ "/" ++ File2, read) of
+                            {error, Err} -> exit(Err);
+                            {ok, ID}     -> scan(ID, [])
+                        end;
             error    -> io:format("Cannae compile...~n"),
-                        {error, File}
+                        {error, cant_compile}
         end.
 
+    scan(ID, Acc) ->
+        case file:read_line(ID) of
+            {ok, "-file(" ++ _Rest} -> scan(ID, Acc);
+            {ok, Line}              -> scan(ID, [Line | Acc]);
+            eof                     -> {ok, lists:reverse(Acc)}
+        end.
+
+    compile_to_ast(File) ->
+        File2 = filename:rootname(filename:basename(File)) ++ ".P",
+        IncludeDir = filename:dirname(File) ++ "/../include",
+        PDir  = filename:dirname(File) ++ "/../psrc",
+        File3 = PDir ++ "/" ++ File2,
+        epp:parse_file(File3, IncludeDir, []).
 
     collect_tokens(List) -> {ok, col2(List, 1, 1, [], [])}.
 
@@ -163,7 +208,7 @@
     get_line([{line, Ln}, _]) -> Ln.
 
     make_location([{line, Ln}, {text, Txt}], Indent) ->
-        {{Ln, Indent}, Indent + length(Txt)}.
+        {{Ln, Indent}, Indent + length(Txt) - 1}.
 
     print_contents(C) -> print_c(C, []).
 

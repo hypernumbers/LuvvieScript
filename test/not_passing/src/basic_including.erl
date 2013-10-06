@@ -4,6 +4,9 @@
 
 -include("included.hrl").
 
+%% This module tests, inter alia, how comments are handled in the `.P` file
+%% generation
+
 including() ->
 
 

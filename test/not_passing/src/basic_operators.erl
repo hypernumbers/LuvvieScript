@@ -25,5 +25,3 @@ int_div() ->
 
 remainder() ->
     7 rem 3.
-
-
