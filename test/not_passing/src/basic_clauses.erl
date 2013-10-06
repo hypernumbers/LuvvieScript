@@ -27,6 +27,19 @@ function2() ->
           end,
     clause(Fun, 3).
 
+function3() ->
+    Fun = fun(_Bish, _Bash, _Bosh) ->
+                  ok;
+             (erk, Berk, Jerk) ->
+                  ok;
+             (Bingo, Bango, Bongo) when is_list(Bingo)  andalso
+                                        is_tuple(Bango) orelse
+                                        is_atom(Bongo)  ->
+                  ok
+          end,
+    clause(Fun, 3).
+
+
 integer() ->
     clause(1).
 
@@ -75,4 +88,15 @@ clause(X) when is_list(X) ->
     ok.
 
 clause(X, Y) when is_function(X, Y) ->
+    ok.
+
+multiguard(X) when is_list(X) orelse
+                   is_tuple(X) ->
+    ok;
+multiguard(X) when is_list(X) andalso
+                   is_tuple(X) ->
+    ok;
+multiguard(X) when is_list(X), is_tuple(X) ->
+    ok;
+multiguard(X) when is_list(X); is_tuple(X) ->
     ok.

@@ -22,8 +22,7 @@
         compile(File, production).
 
     compile(File, Environment) ->
-        {ok, DotP2} = make_dot_P(File),
-        ok = maybe_write(Environment, File, DotP2, ".P2"),
+        {ok, DotP2} = make_dot_P2(File),
         {ok, Syntax} = compile_to_ast(File),
         ok = maybe_write(Environment, File, Syntax, ".ast"),
         {ok, Tokens, _} = erl_scan:string(lists:flatten(DotP2), 1,
@@ -64,20 +63,22 @@
         {NewExpr, NewTks2} = merge([Expr], NewTks,  []),
         merge(T, NewTks2, [{op, Details, Type, NewExpr} | Acc]);
     merge([{op, L, Type, LExpr, RExpr} | T], Tks, Acc)
-      when Type =:= '+'   orelse
-           Type =:= '-'   orelse
-           Type =:= '/'   orelse
-           Type =:= '*'   orelse
-           Type =:= 'rem' orelse
-           Type =:= 'div' orelse
-           Type =:= '=='  orelse
-           Type =:= '/='  orelse
-           Type =:= '=:=' orelse
-           Type =:= '=/=' orelse
-           Type =:= '>'   orelse
-           Type =:= '<'   orelse
-           Type =:= '=<'  orelse
-           Type =:= '>='  ->
+      when Type =:= '+'       orelse
+           Type =:= '-'       orelse
+           Type =:= '/'       orelse
+           Type =:= '*'       orelse
+           Type =:= 'rem'     orelse
+           Type =:= 'div'     orelse
+           Type =:= '=='      orelse
+           Type =:= '/='      orelse
+           Type =:= '=:='     orelse
+           Type =:= '=/='     orelse
+           Type =:= '>'       orelse
+           Type =:= '<'       orelse
+           Type =:= '=<'      orelse
+           Type =:= '>='      orelse
+           Type =:= 'orelse'  orelse
+           Type =:= 'andalso' ->
         {Details, NewTksA} = get_details(Tks, L, {op, Type}),
         {NewLExpr, NewTks} = merge([LExpr], NewTksA,  []),
         {NewRExpr, NewTks2} = merge([RExpr], NewTks,  []),
@@ -95,16 +96,28 @@
     merge([{tuple, L, Vals} | T], Tks, Acc) ->
         {NewVals, NewTks} = merge(Vals, Tks,  []),
         merge(T, NewTks, [{tuple, {L, none}, NewVals} | Acc]);
+    merge([{'if', L, Clauses} | T], Tks, Acc) ->
+        {Details, NewTks} = get_details(Tks, L, {'if', 'if'}),
+        {NewClauses, NewTks2} = merge(Clauses, NewTks,  []),
+        merge(T, NewTks2, [{'if', Details, NewClauses} | Acc]);
     merge([{'case', L, Expr, Clauses} | T], Tks, Acc) ->
         {NewExpr, NewTks} = merge([Expr], Tks,  []),
         {NewClauses, NewTks2} = merge(Clauses, NewTks,  []),
         NewCase = {'case', {L, none}, NewExpr, NewClauses},
         merge(T, NewTks2, [NewCase | Acc]);
+    merge([{clauses, Clauses} | T], Tks, Acc) ->
+        {NewClauses, NewTks} = merge(Clauses, Tks, []),
+        NewC = {clauses, NewClauses},
+        merge(T, NewTks, [NewC | Acc]);
     merge([{clause, L, Args, Guards, Contents} | T], Tks, Acc) ->
-        {NewArgs,     NewTks}  = merge(Args, Tks,  []),
-        {NewGuards,   NewTks2} = merge(Guards, NewTks,  []),
+        {NewArgs, NewTks}  = merge(Args, Tks,  []),
+        Fun = fun(X, {Gs, Tokens}) ->
+                      {NewG, NewTokens} = merge(X, Tokens, []),
+                      {[NewG | Gs], NewTokens}
+              end,
+        {NewGuards,   NewTks2} = lists:foldl(Fun, {[], NewTks}, Guards),
         {NewContents, NewTks3} = merge(Contents, NewTks2, []),
-        NewClause = {clause, {L, none}, NewArgs, NewGuards, NewContents},
+        NewClause = {clause, {L, none}, NewArgs, [NewGuards], NewContents},
         merge(T, NewTks3, [NewClause | Acc]);
     merge([{Type, L} | T], Tks, Acc)
       when Type =:= eof orelse
@@ -112,26 +125,59 @@
         merge(T, Tks, [{Type, {L, none}} | Acc]);
     merge([{attribute, L, A, B} | T], Tks, Acc) ->
         merge(T, Tks, [{attributes, {L, none}, A, B} | Acc]);
+    merge([{lc, L, Statement, Generators} | T], Tks, Acc) ->
+        {NewSt,   NewTks}  = merge([Statement], Tks, []),
+        {NewGens, NewTks2} = merge(Generators,  NewTks, []),
+        NewLC = {lc, {L, none}, NewSt, NewGens},
+        merge(T, NewTks2, [NewLC | Acc]);
+    merge([{generate, L, Statement1, Statement2} | T], Tks, Acc) ->
+        {NewSt1, NewTks1} = merge([Statement1], Tks,     []),
+        {NewSt2, NewTks2} = merge([Statement2], NewTks1, []),
+        NewG = {generate, {L, none}, NewSt1, NewSt2},
+        merge(T, NewTks2, [NewG | Acc]);
+    merge([{call, L, Fn} | T], Tks, Acc) ->
+        {NewFn, NewTks} = merge([Fn], Tks, []),
+        NewC = {call, {L, none}, NewFn},
+        merge(T, NewTks, [NewC | Acc]);
+    merge([{'fun', L, Clauses} | T], Tks, Acc) ->
+        {NewClauses, NewTks} = merge([Clauses], Tks, []),
+        NewFn = {call, {L, none}, NewClauses},
+        merge(T, NewTks, [NewFn | Acc]);
+    merge([{call, L, Fn, Args} | T], Tks, Acc) ->
+        {NewFn,   NewTks}  = merge([Fn], Tks,    []),
+        {NewArgs, NewTks2} = merge(Args, NewTks, []),
+        NewC = {call, {L, none}, NewFn, NewArgs},
+        merge(T, NewTks2, [NewC | Acc]);
+    merge([{record, L, A, B} | T], Tks, Acc) ->
+        merge(T, Tks, [{record, {L, none}, A, B} | Acc]);
+    merge([{record_field, L, A, B, C} | T], Tks, Acc) ->
+        merge(T, Tks, [{record_field, {L, none}, A, B, C} | Acc]);
+    merge([{record_index, L, A, B} | T], Tks, Acc) ->
+        merge(T, Tks, [{record_index, {L, none}, A, B} | Acc]);
     merge([H | T], Tks, Acc) ->
+        io:format("H is ~p~n", [H]),
         merge(T, Tks, [H | Acc]).
 
     get_details(Tokens, Ln, {_Type, Name}) ->
-        case lists:keyfind(Ln, 1, Tokens) of
+        %% '.P2' files misreport the line no by 1 relative to the
+        %% token stream so adjust it here
+        AdjLn = Ln - 1,
+        case lists:keyfind(AdjLn, 1, Tokens) of
             false ->
-                io:format("no tokens for ~p ~p~n", [Ln, Name]),
+                io:format("no tokens for ~p ~p~n", [AdjLn, Name]),
                 {{Ln, none}, Tokens};
-            {Ln, Tks} ->
+            {AdjLn, Tks} ->
                 case lists:keyfind(Name, 1, Tks) of
                     false ->
                         {{Ln, none}, Tokens};
                     {Name, Details, _} ->
                         NewTks = lists:keydelete(Name, 1, Tks),
-                        NewTokens = lists:keystore(Ln, 1, Tokens, {Ln, NewTks}),
+                        NewTokens = lists:keystore(AdjLn, 1, Tokens, {AdjLn, NewTks}),
                         {Details, NewTokens}
                 end
         end.
 
-    make_dot_P(File) ->
+    make_dot_P2(File) ->
         IncludeDir = filename:dirname(File) ++ "/../include",
         PDir       = filename:dirname(File) ++ "/../psrc",
         case compile:file(File, [
@@ -140,26 +186,46 @@
                                  {outdir, PDir}
                                 ]) of
             {ok, []} -> File2 = filename:rootname(filename:basename(File)) ++ ".P",
-                        case file:open(PDir ++ "/" ++ File2, read) of
-                            {error, Err} -> exit(Err);
-                            {ok, ID}     -> scan(ID, [])
-                        end;
+                        {ok, P2} = case file:open(PDir ++ "/" ++ File2, read) of
+                                       {error, Err} -> exit(Err);
+                                       {ok, ID}     -> FileNameFlag = false,
+                                                       scan(ID, FileNameFlag, [])
+                                   end,
+                        File3 = filename:rootname(filename:basename(File)) ++ ".P2",
+                        ok = write_file(P2, PDir ++ "/" ++ File3),
+                        {ok, P2};
             error    -> io:format("Cannae compile...~n"),
                         {error, cant_compile}
         end.
 
-    scan(ID, Acc) ->
-        case file:read_line(ID) of
-            {ok, "-file(" ++ _Rest} -> scan(ID, Acc);
-            {ok, Line}              -> scan(ID, [Line | Acc]);
-            eof                     -> {ok, lists:reverse(Acc)}
+    write_file(List, File) ->
+        _Ret = filelib:ensure_dir(File),
+        case file:open(File, [append]) of
+            {ok, Id} -> write_f2(List, Id),
+                        file:close(Id),
+                        ok;
+            _        -> error
+        end,
+        ok.
+
+    write_f2([],      _Id) -> ok;
+    write_f2([H | T], Id)  -> io:fwrite(Id, "~s", [H]),
+                              write_f2(T, Id).
+
+    scan(ID, Flag, Acc) ->
+        case {file:read_line(ID), Flag} of
+            {{ok, "-file(" ++ _Rest = F}, false} -> scan(ID, true, [F | Acc]);
+            {{ok, "-file(" ++ _Rest},     true}  -> scan(ID, Flag, Acc);
+            {{ok, Line},                  _}     -> scan(ID, Flag, [Line | Acc]);
+            {eof,                         _}     -> Rev = lists:reverse(Acc),
+                                                    {ok, Rev}
         end.
 
     compile_to_ast(File) ->
-        File2 = filename:rootname(filename:basename(File)) ++ ".P",
+        File2 = filename:rootname(filename:basename(File)) ++ ".P2",
         IncludeDir = filename:dirname(File) ++ "/../include",
-        PDir  = filename:dirname(File) ++ "/../psrc",
-        File3 = PDir ++ "/" ++ File2,
+        PDir  = filename:dirname(File) ++ "/../psrc/",
+        File3 = PDir ++ File2,
         epp:parse_file(File3, IncludeDir, []).
 
     collect_tokens(List) -> {ok, col2(List, 1, 1, [], [])}.
