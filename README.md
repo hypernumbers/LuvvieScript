@@ -1,5 +1,10 @@
 <img src='https://raw.github.com/hypernumbers/LuvvieScript/master/priv/images/luvviescript.png' />
 
+Note
+----
+
+This README is not fully up to date. Where sections are awaiting a rewrite they will be marked...
+
 What Is LuvvieScript?
 ---------------------
 
@@ -122,6 +127,8 @@ This AST is then fit to be transformed into Javascript.
 
 The Production Toolchain - Another View
 ---------------------------------------
+
+THIS SECTION NEEDS REWRITING TO MAKE IT UP TO DATE
 
 This process is best shown with an example. Here is some raw Erlang sourcecode deliberately produced with erratic indenting.
 
@@ -296,8 +303,22 @@ The test strategy is this:
 
 The test suite will be built in two phases - basic test followed by more advanced ones **once we have some full working end-to-end results which include javascript and source maps**.
 
+Help With The Javascript Parser API AST
+=======================================
+
+The best way to explore the Javascript Parser API AST (which is the target of the luvvie script compiler) is to use the online Esprima javascript parser which is available online at:
+http://esprima.org/demo/parse.html
+
+This takes javascript and compiles it down to the Parser API.
+
+LuvvieScript itself passes the Parser API into the Escodegen for the reverse journey.
+
+https://github.com/Constellation/escodegen
+
 Contributing
 ============
+
+TIS SECTION NEEDS TO BE REWRITTEN TO BE UP TO DATE WITH THE USE OF LITERATE JAVASCRIPT
 
 The contribution cycle is this:
 
