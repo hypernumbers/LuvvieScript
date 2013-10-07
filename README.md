@@ -315,6 +315,11 @@ LuvvieScript itself passes the Parser API into the Escodegen for the reverse jou
 
 https://github.com/Constellation/escodegen
 
+Installing The Javascript Tools
+===============================
+
+Before getting started you need to install some javascript tools. They are installed by running ``npm install escodegen`` in the ``$GITROOT/priv/`` directory after you have forked this respository on GitHub onto your dev machine.
+
 Contributing
 ============
 
