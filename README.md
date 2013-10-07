@@ -110,9 +110,15 @@ The production toolchain uses normal Erlang syntax tools to process and validate
 
 In order to generate the appropriate Source Map info the following process is implemented:
 * the raw Erlang is normalised by Erlang preprocessor to the ``.P`` form - this is a standard format with reliable indenting - macros are expanded and include files are incorporated
-* the normalised Erlang is compiled to the standard Erlang Abstract Syntax tree (AST) format
-* the normalised AST is subject to a tranformation that adds the filename, lineno and columnno info
-* that decorated Erlang AST is transformed into the Javascript Parser API AST which is then passed on to Javascript tools to generate the actual Javascript.
+* this format is not quite suitable for our purposes because it contains additional lines that screw up the AST so we filter them out give a closely related form call ``.P2``
+
+At this stage we are ready to start building a version of the AST that contains both line and column information which we need for source maps. Two transformations are performed on the ``.P2`` format
+* it is compiled to the standard Erlang Abstract Syntax tree (AST) format
+* it is tokenised to a format we call ``.tks`` with standard Erlang syntax tools - in a token format that preserves comments and whitespace in the token stream - again the tokens contain only line information
+* the token stream is then traversed to accumulate the text length which is used to make a line/column tuple version of the token stream (the ``.tks2`` format)
+* these tokens are then collected to make a dictionary which can be merged with the ``.ast`` format to make the full line/column Erlang AST - the ``.ast2`` format
+
+This AST is then fit to be transformed into Javascript.
 
 The Production Toolchain - Another View
 ---------------------------------------

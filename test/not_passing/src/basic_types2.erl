@@ -6,13 +6,21 @@ list() ->
     A  = [a, b],
     A.
 
+hd() ->
+    A = [a, b],
+    hd(A).
+
 tuple() ->
     B  = {1, 2},
     B.
 
+setelement() ->
+    B = {1, a, "bb"},
+    setelement(2, B, yando).
+
 ref() ->
-    C = make_ref(),
-    C.
+    D = make_ref(),
+    D.
 
 chars() ->
     [$n, $o, $w, $,, $\t, $i, $s, $\t, $t, $h, $e, $\t, $w, $i, $n, $t, $e, $r].

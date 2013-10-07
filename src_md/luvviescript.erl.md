@@ -159,20 +159,16 @@
         merge(T, Tks, [H | Acc]).
 
     get_details(Tokens, Ln, {_Type, Name}) ->
-        %% '.P2' files misreport the line no by 1 relative to the
-        %% token stream so adjust it here
-        AdjLn = Ln - 1,
-        case lists:keyfind(AdjLn, 1, Tokens) of
+        case lists:keyfind(Ln, 1, Tokens) of
             false ->
-                io:format("no tokens for ~p ~p~n", [AdjLn, Name]),
                 {{Ln, none}, Tokens};
-            {AdjLn, Tks} ->
+            {Ln, Tks} ->
                 case lists:keyfind(Name, 1, Tks) of
                     false ->
                         {{Ln, none}, Tokens};
                     {Name, Details, _} ->
                         NewTks = lists:keydelete(Name, 1, Tks),
-                        NewTokens = lists:keystore(AdjLn, 1, Tokens, {AdjLn, NewTks}),
+                        NewTokens = lists:keystore(Ln, 1, Tokens, {Ln, NewTks}),
                         {Details, NewTokens}
                 end
         end.
@@ -223,7 +219,7 @@
 
     compile_to_ast(File) ->
         File2 = filename:rootname(filename:basename(File)) ++ ".P2",
-        IncludeDir = filename:dirname(File) ++ "/../include",
+        IncludeDir = [],
         PDir  = filename:dirname(File) ++ "/../psrc/",
         File3 = PDir ++ File2,
         epp:parse_file(File3, IncludeDir, []).
