@@ -25,6 +25,8 @@
         {ok, DotP2} = make_dot_P2(File),
         {ok, Syntax} = compile_to_ast(File),
         ok = maybe_write(Environment, File, Syntax, ".ast"),
+        {ok, Syntax2} = group_functions(Syntax, [], []),
+        ok = maybe_write(Environment, File, Syntax2, ".ast2"),
         {ok, Tokens, _} = erl_scan:string(lists:flatten(DotP2), 1,
                                           [
                                            return_white_spaces,
@@ -34,12 +36,43 @@
         ok = maybe_write(Environment, File, Tokens, ".tks"),
         {ok, Tokens2} = collect_tokens(Tokens),
         ok = maybe_write(Environment, File, Tokens2, ".tks2"),
-        {Merged, _Tokens3} = merge(Syntax, Tokens2, []),
-        ok = maybe_write(Environment, File, Merged, ".ast2"),
+        {Merged, _Tokens3} = merge(Syntax2, Tokens2, []),
+        ok = maybe_write(Environment, File, Merged, ".ast3"),
         ok.
+
+    group_functions([], Acc1, Acc2) ->
+        Fun = fun({_, _, Name1, Arity1, _}, {_, _, Name2, Arity2, _}) ->
+                      {Name1, Arity1} < {Name2, Arity2}
+              end,
+        %% to group by function we need to know the name of the first fn
+        [{function, _, F, _, _} | _T] = Fns = lists:sort(Fun, Acc2),
+        Fns2 = group(Fns, F, [], []),
+        {ok, lists:reverse(Acc1) ++ Fns2};
+    group_functions([{function, _, _, _, _} = H | T], Acc1, Acc2) ->
+        group_functions(T, Acc1, [H | Acc2]);
+    group_functions([H | T], Acc1, Acc2) ->
+        group_functions(T, [H | Acc1], Acc2).
+
+    group([], _, Acc1, Acc2) ->
+        lists:reverse([group2(Acc1) | Acc2]);
+    group([{function, _, Name, _, _} = H | T], Name, Acc1, Acc2) ->
+        group(T, Name, [H | Acc1], Acc2);
+    group([{function, _, NewName, _, _} = H | T], _Name, Acc1, Acc2) ->
+        group([H | T], NewName, [], [group2(Acc1) | Acc2]).
+
+    group2(List) ->
+        Len = length(List),
+        case Len of
+            1 -> {singleton_fn,  List};
+            _ -> {multiarity_fn, List}
+        end.
 
     merge([], Tks, Acc) ->
         {lists:reverse(Acc), Tks};
+    merge([{Fn, Contents} | T], Tks, Acc) when Fn =:= singleton_fn orelse
+                                               Fn =:= multiarity_fn ->
+        {NewContents, NewTks2} = merge(Contents, Tks, []),
+        merge(T, NewTks2, [{Fn, NewContents} | Acc]);
     merge([{function, L, Fn, N, Contents} | T], Tks, Acc) ->
         {Details,     NewTks}  = get_details(Tks, L, {function, Fn}),
         {NewContents, NewTks2} = merge(Contents, NewTks, []),
@@ -153,11 +186,13 @@
     merge([{record_field, L, A, B, C} | T], Tks, Acc) ->
         merge(T, Tks, [{record_field, {L, none}, A, B, C} | Acc]);
     merge([{record_index, L, A, B} | T], Tks, Acc) ->
-        merge(T, Tks, [{record_index, {L, none}, A, B} | Acc]);
-    merge([H | T], Tks, Acc) ->
-        io:format("H is ~p~n", [H]),
-        merge(T, Tks, [H | Acc]).
+        merge(T, Tks, [{record_index, {L, none}, A, B} | Acc]).
+```
+ merge([H | T], Tks, Acc) ->
+     io:format("H is ~p~n", [H]),
+     merge(T, Tks, [H | Acc]).
 
+```erlang
     get_details(Tokens, Ln, {_Type, Name}) ->
         case lists:keyfind(Ln, 1, Tokens) of
             false ->
@@ -342,7 +377,4 @@
             _ ->
                 error
         end.
-
-
-```
 ```
