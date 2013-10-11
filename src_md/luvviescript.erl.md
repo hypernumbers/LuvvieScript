@@ -36,7 +36,7 @@
         ok = maybe_write(Environment, File, Tokens, ".tks"),
         {ok, Tokens2} = collect_tokens(Tokens),
         ok = maybe_write(Environment, File, Tokens2, ".tks2"),
-        {Merged, _Tokens3} = merge(Syntax2, Tokens2, []),
+        {Merged, _Tokens3} = merge_and_conv(Syntax2, Tokens2, []),
         ok = maybe_write(Environment, File, Merged, ".ast3"),
         ok.
 
@@ -67,35 +67,37 @@
             _ -> {multiarity_fn, List}
         end.
 
-    merge([], Tks, Acc) ->
+    merge_and_conv([], Tks, Acc) ->
         {lists:reverse(Acc), Tks};
-    merge([{Fn, Contents} | T], Tks, Acc) when Fn =:= singleton_fn orelse
-                                               Fn =:= multiarity_fn ->
-        {NewContents, NewTks2} = merge(Contents, Tks, []),
-        merge(T, NewTks2, [{Fn, NewContents} | Acc]);
-    merge([{function, L, Fn, N, Contents} | T], Tks, Acc) ->
+    merge_and_conv([{Fn, Contents} | T], Tks, Acc)
+      when Fn =:= singleton_fn orelse
+           Fn =:= multiarity_fn ->
+        {NewContents, NewTks2} = merge_and_conv(Contents, Tks, []),
+        merge_and_conv(T, NewTks2, [to_js:conv({Fn, NewContents}) | Acc]);
+    merge_and_conv([{function, L, Fn, N, Contents} | T], Tks, Acc) ->
         {Details,     NewTks}  = get_details(Tks, L, {function, Fn}),
-        {NewContents, NewTks2} = merge(Contents, NewTks, []),
+        {NewContents, NewTks2} = merge_and_conv(Contents, NewTks, []),
         NewFn = {function, Details, Fn, N, NewContents},
-        merge(T, NewTks2, [NewFn | Acc]);
-    merge([{cons, L, Head, Tail} | T], Tks, Acc) ->
-        {NewHead, NewTks}  = merge([Head], Tks, []),
-        {NewTail, NewTks2} = merge([Tail], NewTks, []),
+        merge_and_conv(T, NewTks2, [to_js:conv(NewFn) | Acc]);
+    merge_and_conv([{cons, L, Head, Tail} | T], Tks, Acc) ->
+        {NewHead, NewTks}  = merge_and_conv([Head], Tks, []),
+        {NewTail, NewTks2} = merge_and_conv([Tail], NewTks, []),
         NewCons = {cons, {L, none}, NewHead, NewTail},
-        merge(T, NewTks2, [NewCons | Acc]);
-    merge([{match, L, Left, Right} | T], Tks, Acc) ->
+        merge_and_conv(T, NewTks2, [to_js:conv(NewCons) | Acc]);
+    merge_and_conv([{match, L, Left, Right} | T], Tks, Acc) ->
         {Details, TksA} = get_details(Tks, L, {match, "="}),
-        {NewLeft,  NewTks}  = merge([Left], TksA, []),
-        {NewRight, NewTks2} = merge([Right], NewTks, []),
+        {NewLeft,  NewTks}  = merge_and_conv([Left], TksA, []),
+        {NewRight, NewTks2} = merge_and_conv([Right], NewTks, []),
         Match = {match, Details, NewLeft, NewRight},
-        merge(T, NewTks2, [Match | Acc]);
-    merge([{op, L, Type, Expr} | T], Tks, Acc)
+        merge_and_conv(T, NewTks2, [to_js:conv(Match) | Acc]);
+    merge_and_conv([{op, L, Type, Expr} | T], Tks, Acc)
       when Type =:= '+' orelse % unary plus
            Type =:= '-' ->     % unary minus
         {Details, NewTks} = get_details(Tks, L, {op, Type}),
-        {NewExpr, NewTks2} = merge([Expr], NewTks,  []),
-        merge(T, NewTks2, [{op, Details, Type, NewExpr} | Acc]);
-    merge([{op, L, Type, LExpr, RExpr} | T], Tks, Acc)
+        {NewExpr, NewTks2} = merge_and_conv([Expr], NewTks,  []),
+        NewOp = {op, Details, Type, NewExpr},
+        merge_and_conv(T, NewTks2, [to_js:conv(NewOp) | Acc]);
+    merge_and_conv([{op, L, Type, LExpr, RExpr} | T], Tks, Acc)
       when Type =:= '+'       orelse
            Type =:= '-'       orelse
            Type =:= '/'       orelse
@@ -113,11 +115,11 @@
            Type =:= 'orelse'  orelse
            Type =:= 'andalso' ->
         {Details, NewTksA} = get_details(Tks, L, {op, Type}),
-        {NewLExpr, NewTks} = merge([LExpr], NewTksA,  []),
-        {NewRExpr, NewTks2} = merge([RExpr], NewTks,  []),
+        {NewLExpr, NewTks} = merge_and_conv([LExpr], NewTksA,  []),
+        {NewRExpr, NewTks2} = merge_and_conv([RExpr], NewTks,  []),
         NewOp = {op, Details, Type, NewLExpr, NewRExpr},
-        merge(T, NewTks2, [NewOp | Acc]);
-    merge([{Type, L, Val} | T], Tks, Acc)
+        merge_and_conv(T, NewTks2, [to_js:conv(NewOp) | Acc]);
+    merge_and_conv([{Type, L, Val} | T], Tks, Acc)
       when Type =:= char    orelse
            Type =:= float   orelse
            Type =:= var     orelse
@@ -125,72 +127,81 @@
            Type =:= string  orelse
            Type =:= atom    ->
         {Details, NewTks} = get_details(Tks, L, {Type, Val}),
-        merge(T, NewTks, [{Type, Details, Val} | Acc]);
-    merge([{tuple, L, Vals} | T], Tks, Acc) ->
-        {NewVals, NewTks} = merge(Vals, Tks,  []),
-        merge(T, NewTks, [{tuple, {L, none}, NewVals} | Acc]);
-    merge([{'if', L, Clauses} | T], Tks, Acc) ->
+        NewConst = {Type, Details, Val},
+        merge_and_conv(T, NewTks, [to_js:conv(NewConst) | Acc]);
+    merge_and_conv([{tuple, L, Vals} | T], Tks, Acc) ->
+        {NewVals, NewTks} = merge_and_conv(Vals, Tks,  []),
+        NewTuple = {tuple, {L, none}, NewVals},
+        merge_and_conv(T, NewTks, [to_js:conv(NewTuple) | Acc]);
+    merge_and_conv([{'if', L, Clauses} | T], Tks, Acc) ->
         {Details, NewTks} = get_details(Tks, L, {'if', 'if'}),
-        {NewClauses, NewTks2} = merge(Clauses, NewTks,  []),
-        merge(T, NewTks2, [{'if', Details, NewClauses} | Acc]);
-    merge([{'case', L, Expr, Clauses} | T], Tks, Acc) ->
-        {NewExpr, NewTks} = merge([Expr], Tks,  []),
-        {NewClauses, NewTks2} = merge(Clauses, NewTks,  []),
+        {NewClauses, NewTks2} = merge_and_conv(Clauses, NewTks,  []),
+        NewIf = {'if', Details, NewClauses},
+        merge_and_conv(T, NewTks2, [to_js:conv(NewIf) | Acc]);
+    merge_and_conv([{'case', L, Expr, Clauses} | T], Tks, Acc) ->
+        {NewExpr, NewTks} = merge_and_conv([Expr], Tks,  []),
+        {NewClauses, NewTks2} = merge_and_conv(Clauses, NewTks,  []),
         NewCase = {'case', {L, none}, NewExpr, NewClauses},
-        merge(T, NewTks2, [NewCase | Acc]);
-    merge([{clauses, Clauses} | T], Tks, Acc) ->
-        {NewClauses, NewTks} = merge(Clauses, Tks, []),
+        merge_and_conv(T, NewTks2, [to_js:conv(NewCase) | Acc]);
+    merge_and_conv([{clauses, Clauses} | T], Tks, Acc) ->
+        {NewClauses, NewTks} = merge_and_conv(Clauses, Tks, []),
         NewC = {clauses, NewClauses},
-        merge(T, NewTks, [NewC | Acc]);
-    merge([{clause, L, Args, Guards, Contents} | T], Tks, Acc) ->
-        {NewArgs, NewTks}  = merge(Args, Tks,  []),
+        merge_and_conv(T, NewTks, [to_js:conv(NewC) | Acc]);
+    merge_and_conv([{clause, L, Args, Guards, Contents} | T], Tks, Acc) ->
+        {NewArgs, NewTks}  = merge_and_conv(Args, Tks,  []),
         Fun = fun(X, {Gs, Tokens}) ->
-                      {NewG, NewTokens} = merge(X, Tokens, []),
+                      {NewG, NewTokens} = merge_and_conv(X, Tokens, []),
                       {[NewG | Gs], NewTokens}
               end,
         {NewGuards,   NewTks2} = lists:foldl(Fun, {[], NewTks}, Guards),
-        {NewContents, NewTks3} = merge(Contents, NewTks2, []),
+        {NewContents, NewTks3} = merge_and_conv(Contents, NewTks2, []),
         NewClause = {clause, {L, none}, NewArgs, [NewGuards], NewContents},
-        merge(T, NewTks3, [NewClause | Acc]);
-    merge([{Type, L} | T], Tks, Acc)
-      when Type =:= eof orelse
-           Type =:= nil ->
-        merge(T, Tks, [{Type, {L, none}} | Acc]);
-    merge([{attribute, L, A, B} | T], Tks, Acc) ->
-        merge(T, Tks, [{attributes, {L, none}, A, B} | Acc]);
-    merge([{lc, L, Statement, Generators} | T], Tks, Acc) ->
-        {NewSt,   NewTks}  = merge([Statement], Tks, []),
-        {NewGens, NewTks2} = merge(Generators,  NewTks, []),
+        merge_and_conv(T, NewTks3, [to_js:conv(NewClause) | Acc]);
+    merge_and_conv([{eof, _L} | T], Tks, Acc) ->
+        %% discard eof
+        merge_and_conv(T, Tks, Acc);
+    merge_and_conv([{nil, L} | T], Tks, Acc) ->
+        NewNil = {nil, {L, none}},
+        merge_and_conv(T, Tks, [to_js:conv(NewNil) | Acc]);
+    merge_and_conv([{attribute, L, A, B} | T], Tks, Acc) ->
+        NewA = {attributes, {L, none}, A, B},
+        merge_and_conv(T, Tks, [to_js:conv(NewA) | Acc]);
+    merge_and_conv([{lc, L, Statement, Generators} | T], Tks, Acc) ->
+        {NewSt,   NewTks}  = merge_and_conv([Statement], Tks, []),
+        {NewGens, NewTks2} = merge_and_conv(Generators,  NewTks, []),
         NewLC = {lc, {L, none}, NewSt, NewGens},
-        merge(T, NewTks2, [NewLC | Acc]);
-    merge([{generate, L, Statement1, Statement2} | T], Tks, Acc) ->
-        {NewSt1, NewTks1} = merge([Statement1], Tks,     []),
-        {NewSt2, NewTks2} = merge([Statement2], NewTks1, []),
+        merge_and_conv(T, NewTks2, [NewLC | Acc]);
+    merge_and_conv([{generate, L, Statement1, Statement2} | T], Tks, Acc) ->
+        {NewSt1, NewTks1} = merge_and_conv([Statement1], Tks,     []),
+        {NewSt2, NewTks2} = merge_and_conv([Statement2], NewTks1, []),
         NewG = {generate, {L, none}, NewSt1, NewSt2},
-        merge(T, NewTks2, [NewG | Acc]);
-    merge([{call, L, Fn} | T], Tks, Acc) ->
-        {NewFn, NewTks} = merge([Fn], Tks, []),
+        merge_and_conv(T, NewTks2, [to_js:conv(NewG) | Acc]);
+    merge_and_conv([{call, L, Fn} | T], Tks, Acc) ->
+        {NewFn, NewTks} = merge_and_conv([Fn], Tks, []),
         NewC = {call, {L, none}, NewFn},
-        merge(T, NewTks, [NewC | Acc]);
-    merge([{'fun', L, Clauses} | T], Tks, Acc) ->
-        {NewClauses, NewTks} = merge([Clauses], Tks, []),
+        merge_and_conv(T, NewTks, [to_js:conv(NewC) | Acc]);
+    merge_and_conv([{'fun', L, Clauses} | T], Tks, Acc) ->
+        {NewClauses, NewTks} = merge_and_conv([Clauses], Tks, []),
         NewFn = {call, {L, none}, NewClauses},
-        merge(T, NewTks, [NewFn | Acc]);
-    merge([{call, L, Fn, Args} | T], Tks, Acc) ->
-        {NewFn,   NewTks}  = merge([Fn], Tks,    []),
-        {NewArgs, NewTks2} = merge(Args, NewTks, []),
+        merge_and_conv(T, NewTks, [to_js:conv(NewFn) | Acc]);
+    merge_and_conv([{call, L, Fn, Args} | T], Tks, Acc) ->
+        {NewFn,   NewTks}  = merge_and_conv([Fn], Tks,    []),
+        {NewArgs, NewTks2} = merge_and_conv(Args, NewTks, []),
         NewC = {call, {L, none}, NewFn, NewArgs},
-        merge(T, NewTks2, [NewC | Acc]);
-    merge([{record, L, A, B} | T], Tks, Acc) ->
-        merge(T, Tks, [{record, {L, none}, A, B} | Acc]);
-    merge([{record_field, L, A, B, C} | T], Tks, Acc) ->
-        merge(T, Tks, [{record_field, {L, none}, A, B, C} | Acc]);
-    merge([{record_index, L, A, B} | T], Tks, Acc) ->
-        merge(T, Tks, [{record_index, {L, none}, A, B} | Acc]).
+        merge_and_conv(T, NewTks2, [to_js:conv(NewC) | Acc]);
+    merge_and_conv([{record, L, A, B} | T], Tks, Acc) ->
+        NewR = {record, {L, none}, A, B},
+        merge_and_conv(T, Tks, [to_js:conv(NewR) | Acc]);
+    merge_and_conv([{record_field, L, A, B, C} | T], Tks, Acc) ->
+        NewR = {record_field, {L, none}, A, B, C},
+        merge_and_conv(T, Tks, [to_js:conv(NewR) | Acc]);
+    merge_and_conv([{record_index, L, A, B} | T], Tks, Acc) ->
+        NewR = {record_index, {L, none}, A, B},
+        merge_and_conv(T, Tks, [to_js:conv(NewR) | Acc]).
 ```
- merge([H | T], Tks, Acc) ->
+ merge_and_conv([H | T], Tks, Acc) ->
      io:format("H is ~p~n", [H]),
-     merge(T, Tks, [H | Acc]).
+     merge_and_conv(T, Tks, [H | Acc]).
 
 ```erlang
     get_details(Tokens, Ln, {_Type, Name}) ->
@@ -280,21 +291,19 @@
         NewAcc = {Operator, Loc, operator},
         make_entry(T, NewIndent, [NewAcc | Acc]);
     make_entry([{white_space, Details, WS} | T], Indent, Acc) ->
-        % if whitespace starts with a new line it is a terminal whitespace
-        % so reset indent counter to it (ie don't add it to Indent)
-        % otherwise business as usual...
+                                                    % if whitespace starts with a new line it is a terminal whitespace
+                                                    % so reset indent counter to it (ie don't add it to Indent)
+                                                    % otherwise business as usual...
         [{line, Line}, {text, Txt}] = Details,
         [H | _] = Txt,
         NewIndent = case H of
                         $\n -> length(Txt);
-                         _  -> length(Txt) + Indent
+                        _  -> length(Txt) + Indent
                     end,
         NewAcc = {WS, {Line, Indent}, white_space},
         make_entry(T, NewIndent, [NewAcc | Acc]);
-```
- comments are either whole line (don't care about the length)
- or at the end of a line followed by whitespace (don't care about the length).
-```erlang
+                                                    % comments are either whole line (don't care about the length)
+                                                    % or at the end of a line followed by whitespace (don't care about the length).
     make_entry([{comment, _, _} | T], Indent, Acc) ->
         make_entry(T, Indent, Acc);
     make_entry([{Type, Details, Thing} | T], Indent, Acc) ->
@@ -354,10 +363,7 @@
         [io:format("~p~n", [X]) || X <- Rec#clause.contents],
         ok.
 
-    indent(N) when N < 0 ->
-        integer_to_list(N) ++ "xxxx";
-    indent(N) ->
-        lists:flatten(lists:duplicate(N, ?INDENT)).
+    indent(N) -> lists:flatten(lists:duplicate(N, ?INDENT)).
 
     maybe_write(production, _, _, _) ->
         ok;
