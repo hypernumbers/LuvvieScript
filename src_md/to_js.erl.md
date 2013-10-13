@@ -9,10 +9,12 @@
     -module(to_js).
 
     -export([
-             conv/1
+             conv/2
             ]).
 
-    conv(Node) ->
-        %% io:format("Node is ~p~n", [Node]),
+    -include("luvviescript.hrl").
+
+    conv(Node, Context) ->
+        io:format("Node is:~n-~p~n Context is:~n-~p~n", [Node, Context]),
         Node.
 ```

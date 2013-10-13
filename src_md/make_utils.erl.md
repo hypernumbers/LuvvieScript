@@ -15,6 +15,13 @@
              write_file/2
             ]).
 
+```
+ for debugging stuff
+```erlang
+    -export([
+             plain_log/2
+            ]).
+
     make_tests(Dir) ->
         SubDirs = ["/ebin", "/debug"],
         [do_housekeeping(Dir ++ X) || X <- SubDirs],
@@ -87,7 +94,7 @@
         [do_housekeeping(Dir ++ X) || X <- SubDirs],
         code:add_patha("ebin/"),
         Dir2 = Dir  ++ "/src/",
-        Files = filelib:wildcard(Dir2 ++ "*.erl"),
+        Files = filelib:wildcard(Dir2 ++ "*function*.erl"),
         [ok = output(File, Environment) || File <- Files],
         ok.
 
@@ -126,4 +133,14 @@
                 error
         end.
 
+    plain_log(String, File) ->
+        _Return = filelib:ensure_dir(File),
+
+        case file:open(File, [append]) of
+            {ok, Id} ->
+                io:fwrite(Id, "~s~n", [String]),
+                file:close(Id);
+            _ ->
+                error
+        end.
 ```

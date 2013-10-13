@@ -2,31 +2,22 @@
 
 ```erlang
     -record(module, {
-              name              :: string() ,
-              file              :: string(),
-              attributes        :: list(),
-              export_all= flase :: boolean(),
-              exports           :: list(),
-              includes          :: list(),
-              records           :: list(),
-              contents          :: list()
+              name       = []    :: string() ,
+              file       = []    :: string(),
+              attributes = []    :: list(),
+              export_all = false :: boolean(),
+              exports    = []    :: list(),
+              includes   = []    :: list(),
+              records    = []    :: list()
              }).
 
     -record(function, {
-              name          :: string(),
-              arity         :: integer(),
-              line_no,
-              contents = [] :: list()
+              name      = [] :: string(),
+              variables = [] :: list()
              }).
 
-    -record(clause, {
-              params   :: list(),
-              guards   :: list(),
-              line_no  :: list(),
-              contents :: list()
-             }).
-
-    -record(statement, {
-              contents = [] :: list()
+    -record(context, {
+              module           = #module{}   :: #module{},
+              current_function = #function{} :: #function{}
              }).
 ```
