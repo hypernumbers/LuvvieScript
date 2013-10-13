@@ -19,3 +19,6 @@ test/not_passing/debug/
 *.tks2
 *.P2
 include/
+src/
+priv/node_modules
+priv/rebar_plugins
