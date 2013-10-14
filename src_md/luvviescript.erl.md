@@ -136,7 +136,7 @@
         Js = to_js:conv(NewConst, Cx),
         merge_and_conv(T, NewTks, Cx, [Js | Acc]);
     merge_and_conv([{tuple, L, Vals} | T], Tks, Cx, Acc) ->
-        {NewVals, NewCx, NewTks} = merge_and_conv(Vals, Tks, Cx, []),
+        {NewVals, NewTks, NewCx} = merge_and_conv(Vals, Tks, Cx, []),
         NewTuple = {tuple, {L, none}, NewVals},
         Js = to_js:conv(NewTuple, NewCx),
         merge_and_conv(T, NewTks, NewCx, [Js | Acc]);
@@ -153,7 +153,7 @@
         Js = to_js:conv(NewCase, NewCx2),
         merge_and_conv(T, NewTks2, NewCx, [Js | Acc]);
     merge_and_conv([{clauses, Clauses} | T], Tks, Cx, Acc) ->
-        {NewClauses, NewCx, NewTks} = merge_and_conv(Clauses, Tks, Cx, []),
+        {NewClauses, NewTks, NewCx} = merge_and_conv(Clauses, Tks, Cx, []),
         NewC = {clauses, NewClauses},
         Js = to_js:conv(NewC, NewCx),
         merge_and_conv(T, NewTks, NewCx, [Js | Acc]);
@@ -183,7 +183,7 @@
         {NewSt,   NewTks,  NewCx}  = merge_and_conv([Statement], Tks,    Cx, []),
         {NewGens, NewTks2, NewCx2} = merge_and_conv(Generators,  NewTks, NewCx, []),
         NewLC = {lc, {L, none}, NewSt, NewGens},
-        Js = to_js:convert(NewLC, NewCx2),
+        Js = to_js:conv(NewLC, NewCx2),
         merge_and_conv(T, NewTks2, NewCx2, [Js | Acc]);
     merge_and_conv([{generate, L, Stment1, Stment2} | T], Tks, Cx, Acc) ->
         {NewSt1, NewTks1, NewCx}  = merge_and_conv([Stment1], Tks,     Cx,    []),
