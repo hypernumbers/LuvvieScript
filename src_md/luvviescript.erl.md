@@ -312,9 +312,9 @@
         NewAcc = {Operator, Loc, operator},
         make_entry(T, NewIndent, [NewAcc | Acc]);
     make_entry([{white_space, Details, WS} | T], Indent, Acc) ->
-                                                    % if whitespace starts with a new line it is a terminal whitespace
-                                                    % so reset indent counter to it (ie don't add it to Indent)
-                                                    % otherwise business as usual...
+        %% if whitespace starts with a new line it is a terminal whitespace
+        %% so reset indent counter to it (ie don't add it to Indent)
+        %% otherwise business as usual...
         [{line, Line}, {text, Txt}] = Details,
         [H | _] = Txt,
         NewIndent = case H of
@@ -323,8 +323,10 @@
                     end,
         NewAcc = {WS, {Line, Indent}, white_space},
         make_entry(T, NewIndent, [NewAcc | Acc]);
-                                                    % comments are either whole line (don't care about the length)
-                                                    % or at the end of a line followed by whitespace (don't care about the length).
+```
+ comments are either whole line (don't care about the length)
+ or at the end of a line followed by whitespace (don't care about the length).
+```erlang
     make_entry([{comment, _, _} | T], Indent, Acc) ->
         make_entry(T, Indent, Acc);
     make_entry([{Type, Details, Thing} | T], Indent, Acc) ->
@@ -335,7 +337,8 @@
     get_line([{line, Ln}, _]) -> Ln.
 
     make_location([{line, Ln}, {text, Txt}], Indent) ->
-        {{Ln, Indent}, Indent + length(Txt) - 1}.
+        End = Indent + length(Txt),
+        {{Ln, {Indent, End}}, End + 1}.
 
     maybe_write(production, _, _, _) ->
         ok;
