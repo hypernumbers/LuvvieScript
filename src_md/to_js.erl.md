@@ -16,64 +16,64 @@
 
     -include("luvviescript.hrl").
 
-    conv({integer, {Line, {ColStart, ColEnd}}, Int}, _Context) ->
-        {
-         {"type", "Literal"},
-         {"value", Int},
-         {"raw",   integer_to_list(Int)},
-         loc(Line, ColStart, ColEnd)
-        };
-    conv({float, {Line, {ColStart, ColEnd}}, Float}, _Context) ->
-        {
-         {"type", "Literal"},
-         {"value", Float},
-         {"raw",   float_to_list(Float)},
-         loc(Line, ColStart, ColEnd)
-        };
-    conv({string, {Line, {ColStart, ColEnd}}, String}, _Context) ->
-        {
-         {"type", "Literal"},
-         {"value", String},
-         {"raw",   "\"" ++ String ++ "\""},
-         loc(Line, ColStart, ColEnd)
-        };
-    conv({atom, {Line, {ColStart, ColEnd}}, Boolean}, _Context)
-        when Boolean =:= true  orelse
-             Boolean =:= false ->
-        {
-         {"type", "Literal"},
-         {"value", Boolean},
-         {"raw",   atom_to_list(Boolean)},
-         loc(Line, ColStart, ColEnd)
-        };
-    conv({atom, {Line, {ColStart, ColEnd}}, Atom}, _Context) ->
-        {
-          {"type", "Property"},
-          {"key", {
-             {"type", "Identifier"},
-             {"name", "atom"}
-            }
-          },
-          {"value", {
-             {"type",  "Literal"},
-             {"value", atom_to_list(Atom)},
-             {"raw",   atom_to_list(Atom)},
-              loc(Line, ColStart, ColEnd)
-            }
-          }
-        };
 ```
- TODO understand the types of expression (eg ExpressionStatement)
+ conv({integer, {Line, {ColStart, ColEnd}}, Int}, _Context) ->
+     {
+      {"type", "Literal"},
+      {"value", Int},
+      {"raw",   integer_to_list(Int)},
+      loc(Line, ColStart, ColEnd)
+     };
+ conv({float, {Line, {ColStart, ColEnd}}, Float}, _Context) ->
+     {
+      {"type", "Literal"},
+      {"value", Float},
+      {"raw",   float_to_list(Float)},
+      loc(Line, ColStart, ColEnd)
+     };
+ conv({string, {Line, {ColStart, ColEnd}}, String}, _Context) ->
+     {
+      {"type", "Literal"},
+      {"value", String},
+      {"raw",   "\"" ++ String ++ "\""},
+      loc(Line, ColStart, ColEnd)
+     };
+ conv({atom, {Line, {ColStart, ColEnd}}, Boolean}, _Context)
+     when Boolean =:= true  orelse
+          Boolean =:= false ->
+     {
+      {"type", "Literal"},
+      {"value", Boolean},
+      {"raw",   atom_to_list(Boolean)},
+      loc(Line, ColStart, ColEnd)
+     };
+ conv({atom, {Line, {ColStart, ColEnd}}, Atom}, _Context) ->
+     {
+       {"type", "Property"},
+       {"key", {
+          {"type", "Identifier"},
+          {"name", "atom"}
+         }
+       },
+       {"value", {
+          {"type",  "Literal"},
+          {"value", atom_to_list(Atom)},
+          {"raw",   atom_to_list(Atom)},
+           loc(Line, ColStart, ColEnd)
+         }
+       }
+     };
+ %% TODO understand the types of expression (eg ExpressionStatement)
+ conv({match, {_Line, none}, Left, Right}, _Context) ->
+     {
+       {"type",     "AssignmentExpression"},
+       {"operator", "="},
+       {"left",     Left},
+       {"right",    Right}
+     };
+ conv({singleton_fn, Fn}, _Context) ->
+     Fn;
 ```erlang
-    conv({match, {_Line, none}, Left, Right}, Context) ->
-        {
-          {"type",     "AssignmentExpression"},
-          {"operator", "="},
-          {"left",     Left},
-          {"right",    Right}
-        };
-    conv({singleton_fn, Fn}, _Context) ->
-        Fn;
     conv(Node, Context) ->
         io:format("Node is:~n-~p~n Context is:~n-~p~n", [Node, Context]),
         Node.

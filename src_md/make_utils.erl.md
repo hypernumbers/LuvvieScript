@@ -78,8 +78,8 @@
         load_beam_files(T).
 
     compile_erlang(File) ->
-        IncludeDir = filename:dirname(File) ++ "/../include",
-        OutDir     = filename:dirname(File) ++ "/../ebin",
+        IncludeDir  = filename:dirname(File) ++ "/../include",
+        OutDir      = filename:dirname(File) ++ "/../ebin",
         {ok, _} = compile:file(File, [
                                       {i,      IncludeDir},
                                       {outdir, OutDir}
@@ -94,7 +94,7 @@
         [do_housekeeping(Dir ++ X) || X <- SubDirs],
         code:add_patha("ebin/"),
         Dir2 = Dir  ++ "/src/",
-        Files = filelib:wildcard(Dir2 ++ "*function*.erl"),
+        Files = filelib:wildcard(Dir2 ++ "*functions.erl"),
         [ok = output(File, Environment) || File <- Files],
         ok.
 

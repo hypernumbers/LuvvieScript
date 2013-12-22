@@ -28,9 +28,9 @@ function2() ->
     clause(Fun, 3).
 
 function3() ->
-    Fun = fun(_Bish, _Bash, _Bosh) ->
+    Fun = fun(bish, _Bash, _Bosh) ->
                   ok;
-             (erk, Berk, Jerk) ->
+             (erk, _Berk, _Jerk) ->
                   ok;
              (Bingo, Bango, Bongo) when is_list(Bingo)  andalso
                                         is_tuple(Bango) orelse

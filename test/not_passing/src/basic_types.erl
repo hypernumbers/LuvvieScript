@@ -2,26 +2,33 @@
 
 -compile(export_all).
 
-int() ->
+int_fn() ->
     A = 1,
     A.
 
-float() ->
+float_fn() ->
     B = 2.3,
     B.
 
-boolean() ->
+boolean_fn() ->
     C = true,
     C.
 
-atom1() ->
+atom1_fn() ->
     D = blue,
     D.
 
-atom2() ->
+atom2_fn() ->
     E = 'Blue 4 U',
     E.
 
-string() ->
+string_fn() ->
     F = "string theory",
     F.
+
+
+bish_fn(A) ->
+    case A of
+        bash -> berk;
+        bosh -> bork
+    end.

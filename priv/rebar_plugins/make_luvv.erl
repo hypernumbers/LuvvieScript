@@ -15,7 +15,7 @@
 -define(TESTDIRS,  ["test/passing", "test/not_passing"]).
 
 make_luvv(_A, _B) ->
-    code:add_patha("./ebin"),
+    true = code:add_patha("./ebin"),
     [ok = make_utils:compile(X, debug) || X <- ?TESTDIRS],
     ok.
 

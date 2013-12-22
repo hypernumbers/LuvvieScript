@@ -24,7 +24,7 @@ arity(One) when is_list(One) ->
 arity(_One) ->
     erko.
 
-interpolate(Yando) ->
+interpolate(_Yando) ->
     smando.
 
 arity(one, _Two) ->

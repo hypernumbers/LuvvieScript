@@ -13,6 +13,13 @@
             ]).
 
     -include("luvviescript.hrl").
+```
+ include the core erlang syntax records that we are going to act on
+ this file is in /usr/local/lib/erlang/lib/compiler-N.N.N/src
+ or the equivalent. That dir needs to be set in the rebar compiler
+ options for this to compile
+```erlang
+    -include_lib("core_parse.hrl").
 
     -define(LINEENDING, {line_ending, ";", nonce}).
     -define(INDENT, "    ").
@@ -21,12 +28,20 @@
         compile(File, production).
 
     compile(File, Environment) ->
-        {ok, DotP2} = make_dot_P2(File),
-        {ok, Syntax} = compile_to_ast(File),
+        {ok, _, Syntax} = compile_to_ast(File),
         ok = maybe_write(Environment, File, Syntax, ".ast"),
-        {ok, Syntax2} = group_functions(Syntax, [], []),
-        ok = maybe_write(Environment, File, Syntax2, ".ast2"),
-        {ok, Tokens, _} = erl_scan:string(lists:flatten(DotP2), 1,
+        #c_module{defs = Body} = Syntax,
+        %% Erlang regards somefun/1 and somefun/N as two differnt
+        %% fns, Javascript thinks they are they same.
+        %% so we need to group multiple arity erlang fns.
+        %% easiest way to do that is to sort the fns by name/arity
+        SortFn = fun({Var1, _}, {Var2, _}) ->
+                         Var1#c_var.name < Var2#c_var.name
+                 end,
+        Body2 = lists:sort(SortFn, Body),
+        ok = maybe_write(Environment, File, Syntax#c_module{defs = Body2}, ".ast2"),
+        {ok, Src} = file:read_file(File),
+        {ok, Tokens, _} = erl_scan:string(binary_to_list(Src), 1,
                                           [
                                            return_white_spaces,
                                            return_comments,
@@ -35,36 +50,9 @@
         ok = maybe_write(Environment, File, Tokens, ".tks"),
         {ok, Tokens2} = collect_tokens(Tokens),
         ok = maybe_write(Environment, File, Tokens2, ".tks2"),
-        {Merged, _Cx, _Tokens3} = merge_and_conv(Syntax2, Tokens2, #context{}, []),
-        ok = maybe_write(Environment, File, Merged, ".ast3"),
+        %% {Merged, _Cx, _Tokens3} = merge_and_conv(Syntax2, Tokens2, #context{}, []),
+        %% ok = maybe_write(Environment, File, Merged, ".ast3"),
         ok.
-
-    group_functions([], Acc1, Acc2) ->
-        Fun = fun({_, _, Name1, Arity1, _}, {_, _, Name2, Arity2, _}) ->
-                      {Name1, Arity1} < {Name2, Arity2}
-              end,
-        %% to group by function we need to know the name of the first fn
-        [{function, _, F, _, _} | _T] = Fns = lists:sort(Fun, Acc2),
-        Fns2 = group(Fns, F, [], []),
-        {ok, lists:reverse(Acc1) ++ Fns2};
-    group_functions([{function, _, _, _, _} = H | T], Acc1, Acc2) ->
-        group_functions(T, Acc1, [H | Acc2]);
-    group_functions([H | T], Acc1, Acc2) ->
-        group_functions(T, [H | Acc1], Acc2).
-
-    group([], _, Acc1, Acc2) ->
-        lists:reverse([group2(Acc1) | Acc2]);
-    group([{function, _, Name, _, _} = H | T], Name, Acc1, Acc2) ->
-        group(T, Name, [H | Acc1], Acc2);
-    group([{function, _, NewName, _, _} = H | T], _Name, Acc1, Acc2) ->
-        group([H | T], NewName, [], [group2(Acc1) | Acc2]).
-
-    group2(List) ->
-        Len = length(List),
-        case Len of
-            1 -> {singleton_fn,  List};
-            _ -> {multiarity_fn, List}
-        end.
 
     merge_and_conv([], Tks, Cx, Acc) ->
         {lists:reverse(Acc), Tks, Cx};
@@ -240,27 +228,6 @@
                 end
         end.
 
-    make_dot_P2(File) ->
-        IncludeDir = filename:dirname(File) ++ "/../include",
-        PDir       = filename:dirname(File) ++ "/../psrc",
-        case compile:file(File, [
-                                 'P',
-                                 {i,      IncludeDir},
-                                 {outdir, PDir}
-                                ]) of
-            {ok, []} -> File2 = filename:rootname(filename:basename(File)) ++ ".P",
-                        {ok, P2} = case file:open(PDir ++ "/" ++ File2, read) of
-                                       {error, Err} -> exit(Err);
-                                       {ok, ID}     -> FileNameFlag = false,
-                                                       scan(ID, FileNameFlag, [])
-                                   end,
-                        File3 = filename:rootname(filename:basename(File)) ++ ".P2",
-                        ok = write_file(P2, PDir ++ "/" ++ File3),
-                        {ok, P2};
-            error    -> io:format("Cannae compile...~n"),
-                        {error, cant_compile}
-        end.
-
     write_file(List, File) ->
         _Ret = filelib:ensure_dir(File),
         case file:open(File, [append]) of
@@ -285,11 +252,8 @@
         end.
 
     compile_to_ast(File) ->
-        File2 = filename:rootname(filename:basename(File)) ++ ".P2",
-        IncludeDir = [],
-        PDir  = filename:dirname(File) ++ "/../psrc/",
-        File3 = PDir ++ File2,
-        epp:parse_file(File3, IncludeDir, []).
+        IncludeDir = filename:dirname(File) ++ "../include",
+        compile:file(File, [{i, IncludeDir}, binary, to_core]).
 
     collect_tokens(List) -> {ok, col2(List, 1, 1, [], [])}.
 
