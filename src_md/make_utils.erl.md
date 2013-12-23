@@ -94,7 +94,7 @@
         [do_housekeeping(Dir ++ X) || X <- SubDirs],
         code:add_patha("ebin/"),
         Dir2 = Dir  ++ "/src/",
-        Files = filelib:wildcard(Dir2 ++ "*functions.erl"),
+        Files = filelib:wildcard(Dir2 ++ "*.erl"),
         [ok = output(File, Environment) || File <- Files],
         ok.
 
