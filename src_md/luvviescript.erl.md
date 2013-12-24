@@ -14,6 +14,7 @@
 
     -include("luvviescript.hrl").
 ```
+```
  include the core erlang syntax records that we are going to act on
  this file is in /usr/local/lib/erlang/lib/compiler-N.N.N/src
  or the equivalent. That dir needs to be set in the rebar compiler
@@ -21,14 +22,14 @@
 ```erlang
     -include_lib("core_parse.hrl").
 
-    -define(LINEENDING, {line_ending, ";", nonce}).
-    -define(INDENT, "    ").
-
     compile(File) ->
         compile(File, production).
 
     compile(File, Environment) ->
         io:format("Compiling ~p~n", [File]),
+        %% we are going to compile the .P2 version of the Erlang file
+        %% not the plain one, so we create that version first
+        {ok, DotP2} = make_dot_P2(File),
         {ok, _, Syntax} = compile_to_ast(File),
         ok = maybe_write(Environment, File, Syntax, ".ast"),
         #c_module{defs = Body} = Syntax,
@@ -46,7 +47,6 @@
         %% having a source map. .P files have predictable and normalised layout
         %% which makes it possible to use them to collect column information
         %% for the source map file
-        {ok, DotP2} = make_dot_P2(File),
         {ok, Tokens, _} = erl_scan:string(lists:flatten(DotP2), 1,
                                           [
                                            return_white_spaces,
@@ -57,36 +57,64 @@
         {ok, Tokens2} = collect_tokens(Tokens),
         ok = maybe_write(Environment, File, Tokens2, ".tks2"),
         Body3 = merge(Syntax2#c_module.defs, Tokens2, []),
-        Syntax3 = Syntax2#c_module{defs = Body3},
+        Syntax3 = fix_exports(Syntax2#c_module{defs = Body3}),
         ok = maybe_write(Environment, File, Syntax3, ".ast3"),
         ok.
 
     merge([], _Tokens, Acc) ->
         lists:reverse(Acc);
 ```
+ ```
  drop the module_info fns
 ```erlang
     merge([{#c_var{name = {module_info, _}}, _} | T], Tokens, Acc) ->
         merge(T, Tokens, Acc);
     merge([{#c_var{name = {Name, _}} = First, #c_fun{} = Fn} | T], Tokens, Acc) ->
-        io:format("Merging the body of ~p~n", [First]),
-        NewFn = merge_fn(Name, Fn, Tokens, []),
-        merge(T, Tokens, [{First, NewFn} | Acc]);
+        {NewFn, NewToks} = merge_fn(Name, Fn, Tokens, []),
+        merge(T, NewToks, [{First, NewFn} | Acc]);
     merge([H | T], Tokens, Acc) ->
         io:format("In merge Skipping ~p~n", [H]),
         merge(T, Tokens, Acc).
 
-    merge_fn(Name, #c_fun{body = Body} = Fn, Tokens, Acc) ->
-        Line = get_line_var(Body),
-        io:format("Line is ~p~n-Name is ~p~n-Tokens is ~p~n", [Line, Name, Tokens]),
-        {Line2, NewTokens} = get_details(Tokens, Line, Name),
-        io:format("Line2 is ~p~n", [Line2]),
-        NewBody = merge_body(Body, Tokens, []),
-        [Fn#c_fun{body = NewBody} | Acc].
+    merge_fn(Name, #c_fun{vars = Vars, body = Body} = Fn, Tokens, Acc) ->
+        Line = get_line_var(Fn),
+        {NewVars, NewToks, Context} = get_new_vars(Vars, Tokens),
+        {{Line, Offset}, NewToks2} = get_details(NewToks, Line, Name),
+        {NewBody, NewToks3} = merge_body(Body, NewToks2, Context),
+        NewFn = set_col(Offset, Fn#c_fun{vars = NewVars, body = NewBody}),
+        {[NewFn | Acc], NewToks3}.
 
-    merge_body(Body, Tokens, Acc) ->
-        io:format("in merge_body Skipping ~p~n", [Body]),
-        Acc.
+    merge_body(#c_literal{val = Val} = CLit, Tokens, _Context) ->
+        Line = get_line_var(CLit),
+        {{Line, Offset}, NewToks} = get_details(Tokens, Line, Val),
+        NewLit = set_col(Offset, CLit),
+        {NewLit, NewToks};
+    merge_body(Body, Tokens, _Context) ->
+        % io:format("in merge_body Skipping ~p~n", [Body]),
+        {Body, Tokens}.
+
+    get_new_vars([], Tokens) ->
+        {[], Tokens, []};
+    get_new_vars([H | _T] = List, Tokens) ->
+        Line = get_line_var(H),
+        {Line, Tks} = lists:keyfind(Line, 1, Tokens),
+        Matches = get_matches(Tks, []),
+        NewToks = lists:keydelete(Line, 1, Tokens),
+        {NewVars, Context} = get_new_vars2(List, Matches, [], []),
+        {NewVars, NewToks, Context}.
+
+    get_new_vars2([], _Matches, Context, Acc) ->
+        {lists:reverse(Acc), lists:reverse(Context)};
+    get_new_vars2([H1 | T1], [H2 | T2], Context, Acc) ->
+        Offset = get_first_offset(H2),
+        NewH1 = set_col(Offset, H1),
+        NewContext = [{H1#c_var.name, H2} | Context],
+        get_new_vars2(T1, T2, NewContext, [NewH1 | Acc]).
+
+    get_first_offset({_, Offset}) ->
+        Offset;
+    get_first_offset([{_, Offset} | _T]) ->
+        Offset.
 
     get_details(Tokens, Ln, Name) ->
          case lists:keyfind(Ln, 1, Tokens) of
@@ -103,35 +131,70 @@
                  end
          end.
 
-        make_dot_P2(File) ->
-            IncludeDir = filename:dirname(File) ++ "/../include",
-            PDir       = filename:dirname(File) ++ "/../psrc",
-            case compile:file(File, [
-                                     'P',
-                                     {i,      IncludeDir},
-                                     {outdir, PDir}
-                                    ]) of
-                {ok, []} -> File2 = filename:rootname(filename:basename(File)) ++ ".P",
-                            {ok, P2} = case file:open(PDir ++ "/" ++ File2, read) of
-                                           {error, Err} -> exit(Err);
-                                           {ok, ID}     -> FileNameFlag = false,
-                                                           scan(ID, FileNameFlag, [])
-                                       end,
-                            File3 = filename:rootname(filename:basename(File)) ++ ".P2",
-                            ok = write_file(P2, PDir ++ "/" ++ File3),
-                            {ok, P2};
-                error    -> io:format("Cannae compile ~p~n", [File]),
-                            {error, cant_compile}
-            end.
+```
+ ```
+ Core Erlang uses 'made up' variable names in its function definitions
+ We need to match these variable names to the ones used in the source
+ code so that we can build a source map
+ here we are stepping through the tokens of a function defintion
+ to build the context
+```erlang
+    get_matches([], Acc) ->
+        lists:reverse(Acc);
+    get_matches([{'{', _, _} | T], Acc) ->
+        {NewTail, NewAcc} = grab_tuple(T, Acc),
+        get_matches(NewTail, NewAcc);
+    get_matches([{'[', _, _} | T], Acc) ->
+        {NewTail, NewAcc} = grab_list(T, Acc),
+        get_matches(NewTail, NewAcc);
+    get_matches([{Var, {_, Offset}, var} | T], Acc) ->
+        get_matches(T, [{Var, Offset} | Acc]);
+    get_matches([_H | T], Acc) ->
+        get_matches(T, Acc).
 
-        write_file(List, File) ->
-            _Ret = filelib:ensure_dir(File),
-            case file:open(File, [append]) of
-                {ok, Id} -> write_f2(List, Id),
-                            file:close(Id),
-                            ok;
-                _        -> error
-            end,
+    grab_tuple(List, Acc) ->
+        grab(List, '}', Acc).
+
+    grab_list(List, Acc) ->
+        grab(List, ']', Acc).
+
+    grab([{CloseToken, _, _} | Tail], CloseToken, Acc) ->
+        {Tail, [lists:reverse(Acc)]};
+    grab([{Var, {_, Offset}, var} | T], CloseToken, Acc) ->
+        grab(T, CloseToken, [{Var, Offset} | Acc]);
+    grab([_H | T], CloseToken, Acc) ->
+        grab(T, CloseToken, Acc).
+
+    make_dot_P2(File) ->
+        IncludeDir = filename:dirname(File) ++ "/../include",
+        DebugDir   = filename:dirname(File) ++ "/../debug",
+        PDir       = filename:dirname(File) ++ "/../psrc",
+        case compile:file(File, [
+                                 'P',
+                                 {i,      IncludeDir},
+                                 {outdir, DebugDir}
+                                ]) of
+            {ok, []} -> File2 = filename:rootname(filename:basename(File)) ++ ".P",
+                        {ok, P2} = case file:open(DebugDir ++ "/" ++ File2, read) of
+                                       {error, Err} -> exit(Err);
+                                       {ok, ID}     -> FileNameFlag = false,
+                                                       scan(ID, FileNameFlag, [])
+                                   end,
+                        File3 = filename:rootname(filename:basename(File)) ++ ".erl",
+                        ok = write_file(P2, PDir ++ "/" ++ File3),
+                        {ok, P2};
+            error    -> io:format("Cannae compile ~p~n", [File]),
+                        {error, cant_compile}
+        end.
+
+    write_file(List, File) ->
+        _Ret = filelib:ensure_dir(File),
+        case file:open(File, [append]) of
+            {ok, Id} -> write_f2(List, Id),
+                        file:close(Id),
+                        ok;
+            _        -> error
+        end,
         ok.
 
     write_f2([],      _Id) -> ok;
@@ -149,7 +212,9 @@
 
     compile_to_ast(File) ->
         IncludeDir = filename:dirname(File) ++ "../include",
-        compile:file(File, [{i, IncludeDir}, binary, to_core]).
+        PDir       = filename:dirname(File) ++ "/../psrc",
+        File2 = PDir ++ "/" ++ filename:rootname(filename:basename(File)),
+        compile:file(File2, [{i, IncludeDir}, binary, to_core]).
 
     collect_tokens(List) -> {ok, col2(List, 1, 1, [], [])}.
 
@@ -184,6 +249,7 @@
         NewAcc = {WS, {Line, Indent}, white_space},
         make_entry(T, NewIndent, [NewAcc | Acc]);
 ```
+ ```
  comments are either whole line (don't care about the length)
  or at the end of a line followed by whitespace (don't care about the length).
 ```erlang
@@ -215,4 +281,19 @@
                    end,
         [N] = lists:filter(FilterFn, Attrs),
         N.
+
+    set_col(none,          Rec) when is_tuple(Rec) -> Rec;
+    set_col({_N, none},    Rec) when is_tuple(Rec) -> Rec;
+    set_col({Start, _End}, Rec) when is_tuple(Rec) ->
+        Attrs = element(2, Rec),
+        NewAttrs = [{col, Start} | Attrs],
+        setelement(2, Rec, NewAttrs).
+
+    fix_exports(#c_module{exports = Exps} = CMod) ->
+        FilterFn = fun(#c_var{name = {module_info, _}}) -> false;
+                      (_)                               -> true
+                   end,
+        NewExps = lists:filter(FilterFn, Exps),
+        CMod#c_module{exports = NewExps}.
+
 ```
