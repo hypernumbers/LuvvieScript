@@ -15,8 +15,11 @@ src_md/.erl
 include_md/.hrl
 test/not_passing/debug/
 *.ast
+*.ast2
+*.ast3
 *.tks
 *.tks2
+*.P
 *.P2
 include/
 src/
