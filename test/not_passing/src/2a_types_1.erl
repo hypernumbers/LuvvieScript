@@ -1,4 +1,4 @@
--module(basic_types).
+-module('2a_types_1').
 
 -compile(export_all).
 
@@ -25,10 +25,3 @@ atom2_fn() ->
 string_fn() ->
     F = "string theory",
     F.
-
-
-bish_fn(A) ->
-    case A of
-        bash -> berk;
-        bosh -> bork
-    end.

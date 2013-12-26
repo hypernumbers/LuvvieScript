@@ -1,4 +1,4 @@
--module(basic_operators).
+-module('2b_operators_1').
 
 -compile(export_all).
 
