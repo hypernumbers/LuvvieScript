@@ -84,13 +84,15 @@
         NewFn = set_col(Offset, Fn#c_fun{vars = NewVars, body = NewBody}),
         {[NewFn | Acc], NewToks3}.
 
+    merge_body(#c_literal{anno = []} = CLit, Tokens, _Context) ->
+        {CLit, Tokens};
     merge_body(#c_literal{val = Val} = CLit, Tokens, _Context) ->
         Line = get_line_var(CLit),
         {{Line, Offset}, NewToks} = get_details(Tokens, Line, Val),
         NewLit = set_col(Offset, CLit),
         {NewLit, NewToks};
     merge_body(Body, Tokens, _Context) ->
-        % io:format("in merge_body Skipping ~p~n", [Body]),
+        io:format("in merge_body Skipping ~p~n", [Body]),
         {Body, Tokens}.
 
     get_new_vars([], Tokens) ->

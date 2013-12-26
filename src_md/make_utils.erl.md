@@ -16,6 +16,7 @@
             ]).
 
 ```
+```
  for debugging stuff
 ```erlang
     -export([
@@ -34,6 +35,7 @@
         ok = load_beam_files(Modules),
         ok = make_compile_tests(Modules, Dir),
         Tests = [get_tests(X) || X <- Modules],
+        io:format("Gonnae write the tests then son?~n"),
         io:format("Tests is ~p~n", [Tests]),
         Results = [get_results(X) || X <- Tests],
         io:format("Results is ~p~n", [Results]),
@@ -43,12 +45,13 @@
         Dir2 = filename:basename(Dir),
         Name = Dir2 ++ "_compile_SUITE",
         Tests = ["?TESTFN("
-                 ++ atom_to_list(X) ++ "_test, "
+                 ++ "'" ++ atom_to_list(X) ++ "_test', "
                  ++ Dir2 ++ ", "
-                 ++ atom_to_list(X)
+                 ++ "'" ++ atom_to_list(X) ++ "'"
                  ++ ").\n"
                  || X <- Modules],
-        All = string:join([atom_to_list(X) ++ "_test" || X <- Modules], ",\n"),
+        All = string:join(["'" ++ atom_to_list(X) ++ "_test'"
+                           || X <- Modules], ",\n"),
         All2 = "all() ->\n[\n" ++ All ++ "\n].\n",
         Suite = lists:flatten([
                                "%%% this file is GENERATED - DO NOT EDIT\n",
@@ -60,8 +63,7 @@
                                "\n"
                                | Tests
                               ]),
-        ok = write_file(Suite, "test/" ++ Name ++ ".erl"),
-        ok.
+        ok = file:write_file("test/" ++ Name ++ ".erl", Suite).
 
     get_results({Mod, Fns}) ->
         {Mod, [{X, Mod:X()} || X <- Fns]}.
@@ -78,6 +80,7 @@
         load_beam_files(T).
 
     compile_erlang(File) ->
+        io:format("Compiling ~p~n", [File]),
         IncludeDir  = filename:dirname(File) ++ "/../include",
         OutDir      = filename:dirname(File) ++ "/../ebin",
         {ok, _} = compile:file(File, [

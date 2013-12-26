@@ -2,7 +2,7 @@
 -include("ct.hrl").
 
 -define(TESTFN(Fn, Name, Module),
-       Fn(Config) ->
+       Fn(_Config) ->
                File = atom_to_list(Name) ++ "/js/"
                    ++ atom_to_list(Module) ++ ".js",
                Cmd = "rhino ../../test/" ++ File,
