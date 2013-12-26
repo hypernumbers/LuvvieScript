@@ -1,7 +1,7 @@
    @author    Gordon Guthrie
    @copyright (C) 2013, Gordon Guthrie
    @doc       This module converts the (slightly amended)
-              Erlang AST to the javascript one
+              core Erlang AST to the javascript one
               to see examples of the javascript AST go to
               http://esprima.org/demo/parse.html
 
@@ -11,10 +11,30 @@
     -module(to_js).
 
     -export([
-             conv/2
+             conv/1
             ]).
 
+    -include_lib("core_parse.hrl").
     -include("luvviescript.hrl").
+
+    conv(#c_module{} = Module) ->
+        #c_module{anno    = Annotations,
+                  name    = Name,
+                  exports = Exports,
+                  attrs   = Attrs,
+                  defs    = Defs} = Module,
+        io:format("Module is called ~p~n-Annotations is ~p~n-Exports is ~p~n" ++
+                      "-Attrs is ~p~n-Defs is ~p~n",
+                  [Name, Annotations, Exports, Attrs, Defs]),
+        Context = #js_context{name    = Name,
+                              exports = Exports},
+        Body = [conv(X, Context) || X <- Defs],
+        io:format("Body is ~p~n", [Body]),
+        ok.
+
+    conv({#c_var{} = FnName, FnList}, Context) ->
+        io:format("Convert ~p ~p~n", [FnName, FnList]),
+        skipping.
 
 ```
  conv({integer, {Line, {ColStart, ColEnd}}, Int}, _Context) ->
@@ -73,11 +93,8 @@
      };
  conv({singleton_fn, Fn}, _Context) ->
      Fn;
-```erlang
-    conv(Node, Context) ->
-        io:format("Node is:~n-~p~n Context is:~n-~p~n", [Node, Context]),
-        Node.
 
+```erlang
     loc(Line, Start, End) ->
         {"loc", [{"start", [{"line", Line}, {"column", Start}]},
                  {"end",   [{"line", Line}, {"column", End}]}]}.

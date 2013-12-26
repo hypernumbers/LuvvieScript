@@ -59,7 +59,9 @@
         Body3 = merge(Syntax2#c_module.defs, Tokens2, []),
         Syntax3 = fix_exports(Syntax2#c_module{defs = Body3}),
         ok = maybe_write(Environment, File, Syntax3, ".ast3"),
-        ok.
+        JS = to_js:conv(Syntax3),
+        JSDir = filename:dirname(File) ++ "/../js/",
+        ok = write(JSDir, File, JS, ".js").
 
     merge([], _Tokens, Acc) ->
         lists:reverse(Acc);
@@ -272,9 +274,12 @@
         ok;
     maybe_write(debug, File, Contents, FileType) ->
         OutputDir = filename:dirname(File) ++ "/../debug/",
+        write(OutputDir, File, Contents, FileType).
+
+    write(Dir, File, Contents, FileType) ->
         OutputFile = filename:rootname(filename:basename(File)) ++ FileType,
         _Return = filelib:ensure_dir(File),
-        ok = make_utils:write_file(Contents, OutputDir ++ OutputFile).
+        ok = make_utils:write_file(Contents, Dir ++ OutputFile).
 
     get_line_var(Rec) when is_tuple(Rec) ->
         Attrs = element(2, Rec),

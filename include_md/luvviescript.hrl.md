@@ -20,4 +20,9 @@
               module           = #module{}   :: #module{},
               current_function = #function{} :: #function{}
              }).
+
+    -record(js_context, {
+              name    = [] :: list(),
+              exports = [] :: list()
+             }).
 ```
