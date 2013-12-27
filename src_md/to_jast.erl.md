@@ -1,4 +1,3 @@
-
    @author    Gordon Guthrie
    @copyright (C) 2013, Gordon Guthrie
    @doc       This module converts the (slightly amended)
@@ -45,7 +44,7 @@
     make_fn([], Acc) ->
         %% add the default case
         Cases = lists:reverse([{null, "throw error", ?WITHOUTBREAK} | Acc]),
-        Switch = make_switch("_args", Cases),
+        Switch = make_switch(<<"_args">>, Cases),
         [
          define_args,
          Switch
@@ -58,14 +57,17 @@
         make_function_body.
 
     make_switch(Variable, Cases) ->
-        {
-          {"type", "SwitchStatement"},
-          {"discriminant", {
-             {"type", "Identifier"},
-             {"name", Variable}
-            }
-          },
-          {"cases", make_cases(Cases, [])}
+        {obj, [
+               {"type", <<"SwitchStatement">>},
+               {"discriminant", {obj, [
+                                       {"type", <<"Identifier">>},
+                                       {"name", Variable}
+                                      ]
+                                }
+
+               },
+               {"cases", make_cases(Cases, [])}
+              ]
         }.
 
     make_cases([], Acc) ->
@@ -73,36 +75,44 @@
     make_cases([{Val, Body, HasBreak} | T], Acc) ->
         Body2 = case HasBreak of
                     true -> [Body] ++ [
-                                       {{"type", "BreakStatement"},
-                                        {"label", null}}
+                                       {obj, [
+                                              {"type", <<"BreakStatement">>},
+                                              {"label", null}
+                                             ]
+                                       }
                                       ];
                     false -> [Body]
                 end,
-        NewAcc = {{"type", "SwitchCase"},
-                  {"test", make_literal(Val)},
-                  {"consequent", Body2}
+        NewAcc = {obj, [
+                        {"type", <<"SwitchCase">>},
+                        {"test", make_literal(Val)},
+                        {"consequent", Body2}
+                       ]
                  },
         make_cases(T, [NewAcc | Acc]).
 
     make_programme(Body) when is_list(Body) ->
-        {
-          {"type", "Program"},
-          {"body", Body}
+        {obj, [
+               {"type", <<"Program">>},
+               {"body", Body}
+              ]
         }.
 
     make_literal(null) ->
         null;
     make_literal(Val) ->
-        {
-          {"type", "Literal"},
-          {"value", Val},
-          {"raw", to_s(Val)}
+        {obj, [
+               {"type", <<"Literal">>},
+               {"value", enc_v(Val)},
+               {"raw", raw_enc_v(Val)}
+              ]
         }.
 
     make_expression(Expr) ->
-        {
-          {"type", "ExpressionStatement"},
-          {"expression", Expr}
+        {obj, [
+               {"type", <<"ExpressionStatement">>},
+               {"expression", Expr}
+              ]
         }.
 
 ```
@@ -171,15 +181,21 @@ make_fn(Name,
         {"loc", [{"start", [{"line", Line}, {"column", Start}]},
                  {"end",   [{"line", Line}, {"column", End}]}]}.
 
-    to_s(Int) when is_integer(Int)      -> integer_to_list(Int);
-    to_s(Flt) when is_float(Flt)        ->
+    raw_enc_v(Str)  when is_list(Str)    -> enc_v("\"" ++ Str ++ "\"");
+    raw_enc_v(Atom) when is_atom(Atom)   -> Atom;
+    raw_enc_v(Int)  when is_integer(Int) -> list_to_binary(integer_to_list(Int));
+    raw_enc_v(Flt)  when is_float(Flt)   ->
         %% definetaly a better way to test this (3.0 = "3")
-        case erlang:trunc(Flt) == Flt andalso Flt < 99999 of
-            true  -> integer_to_list(erlang:trunc(Flt));
-            false -> string:to_upper(mochinum:digits(Flt))
-        end;
-    to_s(Str)  when is_list(Str)        -> "\"" ++ Str ++ "\"";
-    to_s(Atom) when is_atom(Atom)       -> Atom.
+        Str = case erlang:trunc(Flt) == Flt andalso Flt < 99999 of
+                  true  -> integer_to_list(erlang:trunc(Flt));
+                  false -> string:to_upper(mochinum:digits(Flt))
+              end,
+        list_to_binary(Str).
+
+    enc_v(Str)  when is_list(Str)    -> list_to_binary(Str);
+    enc_v(Atom) when is_atom(Atom)   -> Atom;
+    enc_v(Int)  when is_integer(Int) -> Int;
+    enc_v(Flt)  when is_float(Flt)   -> Flt.
 
 ```
 ```
@@ -196,74 +212,43 @@ make_fn(Name,
     -include_lib("eunit/include/eunit.hrl").
 
     basic_test_() ->
-        Exp = {{"type", "SwitchStatement"},
-               {"discriminant", {{"type", "Identifier"},
-                                 {"name", "args"}
-                                }
-               },
-               {"cases", [
-                          {{"type", "SwitchCase"},
-                           {"test", {{"type", "Literal"},
-                                     {"value", 0},
-                                     {"raw", "0"}
-                                    }
-                           },
-                           {"consequent", [
-                                           {{"type", "ExpressionStatement"},
-                                            {"expression", {{"type", "Literal"},
-                                                            {"value", "jerk"},
-                                                            {"raw", "\"jerk\""}
-                                                           }
-                                            }
-                                           },
-                                           {{"type", "BreakStatement"},
-                                            {"label", null}
-                                           }
-                                          ]
-                           }
-                          },
-                          {{"type", "SwitchCase"},
-                           {"test", {{"type", "Literal"},
-                                     {"value", 1},
-                                     {"raw", "1"}
-                                    }
-                           },
-                           {"consequent", [
-                                           {{"type", "ExpressionStatement"},
-                                            {"expression", {{"type", "Literal"},
-                                                            {"value", "erk"},
-                                                            {"raw", "\"erk\""}
-                                                           }
-                                            }
-                                           },
-                                           {{"type", "BreakStatement"},
-                                            {"label", null}
-                                           }
-                                          ]
-                            }
-                          },
-                          {{"type", "SwitchCase"},
-                           {"test", null},
-                           {"consequent", [
-                                           {{"type", "ExpressionStatement"},
-                                            {"expression", {{"type", "Literal"},
-                                                            {"value", "shirk"},
-                                                            {"raw", "\"shirk\""}
-                                                           }
-                                            }
-                                           }
-                                          ]
-                           }
-                          }
-                         ]
-               }
-              },
+        Exp = {obj,[{"type",<<"SwitchStatement">>},
+          {"discriminant",{obj,[{"type",<<"Identifier">>},{"name",<<"args">>}]}},
+          {"cases",
+           [{obj,[{"type",<<"SwitchCase">>},
+                  {"test",
+                   {obj,[{"type",<<"Literal">>},{"value",0},{"raw",<<"0">>}]}},
+                  {"consequent",
+                   [{obj,[{"type",<<"ExpressionStatement">>},
+                          {"expression",
+                           {obj,[{"type",<<"Literal">>},
+                                 {"value",<<"jerk">>},
+                                 {"raw",<<"\"jerk\"">>}]}}]},
+                    {obj,[{"type",<<"BreakStatement">>},{"label",null}]}]}]},
+            {obj,[{"type",<<"SwitchCase">>},
+                  {"test",
+                   {obj,[{"type",<<"Literal">>},{"value",1},{"raw",<<"1">>}]}},
+                  {"consequent",
+                   [{obj,[{"type",<<"ExpressionStatement">>},
+                          {"expression",
+                           {obj,[{"type",<<"Literal">>},
+                                 {"value",<<"erk">>},
+                                 {"raw",<<"\"erk\"">>}]}}]},
+                    {obj,[{"type",<<"BreakStatement">>},{"label",null}]}]}]},
+            {obj,[{"type",<<"SwitchCase">>},
+                  {"test",null},
+                  {"consequent",
+                   [{obj,[{"type",<<"ExpressionStatement">>},
+                          {"expression",
+                           {obj,[{"type",<<"Literal">>},
+                                 {"value",<<"shirk">>},
+                                 {"raw",<<"\"shirk\"">>}]}}]}]}]}]}]},
         J = make_expression(make_literal("jerk")),
         E = make_expression(make_literal("erk")),
         S = make_expression(make_literal("shirk")),
-        Got = make_switch("args", [{0,    J, ?WITHBREAK},
-                                   {1,    E, ?WITHBREAK},
-                                   {null, S, ?WITHOUTBREAK}]),
+        Got = make_switch(<<"args">>, [{0,    J, ?WITHBREAK},
+                                       {1,    E, ?WITHBREAK},
+                                       {null, S, ?WITHOUTBREAK}]),
         Msg = io_lib:format("Exp is ~p~nGot is ~p~n", [Exp, Got]),
         make_utils:plain_log(Msg, "/tmp/to_jast.log"),
         ?_assertEqual(Got, Exp).
