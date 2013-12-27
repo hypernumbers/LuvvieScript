@@ -59,9 +59,8 @@
         Body3 = merge(Syntax2#c_module.defs, Tokens2, []),
         Syntax3 = fix_exports(Syntax2#c_module{defs = Body3}),
         ok = maybe_write(Environment, File, Syntax3, ".ast3"),
-        JS = to_js:conv(Syntax3),
-        JSDir = filename:dirname(File) ++ "/../js/",
-        ok = write(JSDir, File, JS, ".js").
+        Jast = to_jast:conv(Syntax3),
+        ok = maybe_write(Environment, File, Jast, ".jast").
 
     merge([], _Tokens, Acc) ->
         lists:reverse(Acc);
