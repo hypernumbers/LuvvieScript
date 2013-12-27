@@ -30,31 +30,60 @@
                       "-Attrs is ~p~n-Defs is ~p~n",
                   [Name, Annotations, Exports, Attrs, Defs]),
         Context = #js_context{name    = Name,
-                              exports = Exports},
+                               exports = Exports},
         Body = [conv(X, Context) || X <- Defs],
         io:format("Body is ~p~n", [Body]),
         ok.
 
     conv({#c_var{} = FnName, FnList}, Context) ->
-        io:format("Convert ~p ~p~n", [FnName, FnList]),
-        FnBody = make_fn(FnList, []),
+        io:format("Convert ~p ~p~n-using ~p~n", [FnName, FnList, Context]),
+        FnBody = conv_fn(FnList, []),
         io:format("FnBody is ~p~n", [FnBody]),
         skipping.
 
-    make_fn([], Acc) ->
+    conv_fn([], Acc) ->
         %% add the default case
         Cases = lists:reverse([{null, "throw error", ?WITHOUTBREAK} | Acc]),
         Switch = make_switch(<<"_args">>, Cases),
-        [
-         define_args,
-         Switch
-        ];
-    make_fn([#c_fun{vars = Vs} = CFn | T], Acc) ->
-        NewAcc = {length(Vs), make_fn2(CFn), ?WITHBREAK},
-        make_fn(T, [NewAcc | Acc]).
+        Left = make_literal("_args"),
+        Method = make_method("arguments", "length"),
+        Right = make_call_expr(Method, []),
+        ArgsDef = make_assignment("=", Left, Right),
+        _Body = make_block_statement([
+                                     ArgsDef,
+                                     Switch
+                                    ]);
+    conv_fn([#c_fun{vars = Vs} = CFn | T], Acc) ->
+        NewAcc = {length(Vs), conv_fn2(CFn), ?WITHBREAK},
+        conv_fn(T, [NewAcc | Acc]).
 
-    make_fn2(#c_fun{}) ->
-        make_function_body.
+    conv_fn2(#c_fun{} = CFn) ->
+        io:format("CFn is ~p~n", [CFn]),
+        xxxx_make_function_body.
+
+    make_return(Ret) ->
+        {obj,
+         [
+          {"type", <<"ReturnStatement">>},
+          {"argument", {obj,
+                        [
+                         Ret
+                        ]
+                       }
+          }
+         ]
+        }.
+
+    make_block_statement(Block) ->
+        {obj,
+         [
+          {"type", <<"BlockStatement">>},
+          {"body", Block}
+         ]
+        }.
+
+    make_fn(_FnName, _Params, _Defaults, _Body) ->
+        xxxxmake_a_fn.
 
     make_switch(Variable, Cases) ->
         {obj, [
@@ -105,6 +134,48 @@
                {"type", <<"Literal">>},
                {"value", enc_v(Val)},
                {"raw", raw_enc_v(Val)}
+              ]
+        }.
+
+    make_method(Obj, Fn) ->
+        {obj, [
+               {"type", <<"MemberExpression">>},
+               {"computed", false},
+               {"object", [
+                           {"type", <<"Identifier">>},
+                           {"name", enc_v(Obj)}
+                           ]
+               },
+               {"property", {obj,
+                             [
+                              {"type", <<"Idenfifier">>},
+                              {"name", enc_v(Fn)}
+                              ]
+                             }
+                }
+              ]
+        }.
+
+    make_call_expr(Callee, Args) ->
+        {obj,
+         [
+          Callee,
+          {"arguments", enc_v(Args)}
+         ]
+        }.
+
+    make_assignment(Operator, Left, Right) ->
+        {obj, [
+               {"type", <<"ExpressionStatement">>},
+               {"expression", {obj,
+                               [
+                                {"type", <<"AssignmentExpression">>},
+                                {"operator", enc_v(Operator)},
+                                {"left", Left},
+                                {"right", Right}
+                               ]
+                              }
+               }
               ]
         }.
 
@@ -211,7 +282,7 @@ make_fn(Name,
 ```erlang
     -include_lib("eunit/include/eunit.hrl").
 
-    basic_test_() ->
+    switch_test_() ->
         Exp = {obj,[{"type",<<"SwitchStatement">>},
           {"discriminant",{obj,[{"type",<<"Identifier">>},{"name",<<"args">>}]}},
           {"cases",
@@ -249,7 +320,119 @@ make_fn(Name,
         Got = make_switch(<<"args">>, [{0,    J, ?WITHBREAK},
                                        {1,    E, ?WITHBREAK},
                                        {null, S, ?WITHOUTBREAK}]),
-        Msg = io_lib:format("Exp is ~p~nGot is ~p~n", [Exp, Got]),
+        Msg = io_lib:format("switch_test~nExp is ~p~nGot is ~p~n", [Exp, Got]),
+        make_utils:plain_log(Msg, "/tmp/to_jast.log"),
+        ?_assertEqual(Got, Exp).
+
+    args_test() ->
+        Exp = {obj,[
+                    {"type",<<"ExpressionStatement">>},
+                    {"expression",
+                     {obj,[
+                           {"type",<<"AssignmentExpression">>},
+                           {"operator",<<"=">>},
+                           {"left",
+                            {obj,[
+                                  {"type",<<"Identifier">>},
+                                  {"name",<<"_args">>}
+                                 ]
+                            }
+                           },
+                           {"right",
+                            {obj,[
+                                  {"type",<<"CallExpression">>},
+                                  {"callee",
+                                   {obj,[
+                                         {"type",<<"MemberExpression">>},
+                                         {"computed",false},
+                                         {"object",
+                                          {obj,[
+                                                {"type",<<"Identifier">>},
+                                                {"name",<<"arguments">>}
+                                               ]
+                                          }
+                                         },
+                                         {"property",
+                                          {obj,[
+                                                {"type",<<"Identifier">>},
+                                                {"name",<<"length">>}
+                                               ]
+                                          }
+                                         }
+                                        ]
+                                   }
+                                  },
+                                  {"arguments",[]}
+                                 ]
+                            }
+                           }
+                          ]
+                     }
+                    }
+                   ]
+              },
+        Left = make_literal("_args"),
+        Method = make_method("arguments", "length"),
+        Right = make_call_expr(Method, []),
+        Got = make_assignment("=", Left, Right),
+        Msg = io_lib:format("args_test~nExp is ~p~nGot is ~p~n", [Exp, Got]),
+        make_utils:plain_log(Msg, "/tmp/to_jast.log"),
+        ?_assertEqual(Got, Exp).
+
+    fns_test() ->
+        Exp = {obj,
+               [
+                {"type",<<"ExpressionStatement">>},
+                {"expression",
+                 {obj,
+                  [
+                   {"type",<<"AssignmentExpression">>},
+                   {"operator",<<"=">>},
+                   {"left",
+                    {obj,
+                     [
+                      {"type",<<"Identifier">>},
+                      {"name",<<"simplefn">>}
+                     ]}},
+                   {"right",
+                    {obj,
+                     [
+                      {"type",<<"FunctionExpression">>},
+                      {"id",null},
+                      {"params",[]},
+                      {"defaults",[]},
+                      {"body",
+                       {obj,
+                        [
+                         {"type",<<"BlockStatement">>},
+                         {"body",
+                          [
+                           {obj,
+                            [
+                             {"type",<<"ReturnStatement">>},
+                             {"argument",
+                              {obj,
+                               [{"type",<<"Literal">>},
+                                {"value",<<"banjolette">>},
+                                {"raw",<<"\"banjolette\"">>}
+                               ]}}
+                            ]}
+                          ]}
+                        ]}},
+                      {"rest",null},
+                      {"generator",false},
+                      {"expression",false}
+                     ]}}
+                  ]}}
+               ]},
+        FnName = "simplefn",
+        Params = [],
+        Defaults = [],
+        Literal = make_literal("banjolette"),
+        Return = make_return(Literal),
+        Body = make_block_statement(Return),
+        Got = make_fn(FnName, Params, Defaults, Body),
+        Msg = io_lib:format("args_test~nExp is ~p~nGot is ~p~n", [Exp, Got]),
         make_utils:plain_log(Msg, "/tmp/to_jast.log"),
         ?_assertEqual(Got, Exp).
 
