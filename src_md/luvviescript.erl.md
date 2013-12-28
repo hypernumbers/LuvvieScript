@@ -1,7 +1,7 @@
     @author    Gordon Guthrie
     @copyright (C) 2013, Gordon Guthrie
     @doc       This is the luvviescript compiler
- 
+
     @end
     Created : 17 Aug 2013 by gordon@vixo.com
 ```erlang
@@ -28,6 +28,7 @@
 
     compile(File, Environment) ->
         io:format("Compiling ~p~n", [File]),
+        ok = maybe_core(Environment, File),
         %% we are going to compile the .P2 version of the Erlang file
         %% not the plain one, so we create that version first
         {ok, DotP2} = make_dot_P2(File),
@@ -272,6 +273,14 @@
     make_location([{line, Ln}, {text, Txt}], Indent) ->
         End = Indent + length(Txt),
         {{Ln, {Indent, End}}, End + 1}.
+
+    maybe_core(production, _) ->
+        ok;
+    maybe_core(debug, File) ->
+        IncDir  = filename:dirname(File) ++ "../include",
+        ODir    = filename:dirname(File) ++ "/../debug/",
+        {ok, _} = compile:file(File, [{i, IncDir}, {outdir, ODir}, to_core]),
+        ok.
 
     maybe_write(production, _, _, _) ->
         ok;
