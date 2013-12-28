@@ -288,11 +288,28 @@
         [N] = lists:filter(FilterFn, Attrs),
         N.
 
-    set_col(none,          Rec) when is_tuple(Rec) -> Rec;
-    set_col({_N, none},    Rec) when is_tuple(Rec) -> Rec;
-    set_col({Start, _End}, Rec) when is_tuple(Rec) ->
+    set_col(none,         Rec) when is_tuple(Rec) -> Rec;
+    set_col({_N, none},   Rec) when is_tuple(Rec) -> Rec;
+    set_col({Start, End}, Rec) when is_tuple(Rec) ->
+        Line = get_line_var(Rec),
         Attrs = element(2, Rec),
-        NewAttrs = [{col, Start} | Attrs],
+        Loc = {"loc", {obj, [
+                             {"start", {obj, [
+                                              {"line",   Line},
+                                              {"column", Start}
+                                             ]
+                                       }
+                             },
+                             {"end", {obj, [
+                                            {"line",   Line},
+                                            {"column", End}
+                                           ]
+                                        }
+                             }
+                            ]
+                      }
+              },
+        NewAttrs = [Loc | Attrs],
         setelement(2, Rec, NewAttrs).
 
     fix_exports(#c_module{exports = Exps} = CMod) ->

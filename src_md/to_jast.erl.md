@@ -43,13 +43,13 @@
 
     conv_fn([], Acc) ->
         %% add the default case
-        Cases = lists:reverse([{null, "throw error", ?WITHOUTBREAK} | Acc]),
-        Switch = make_switch(<<"_args">>, Cases),
-        Left = make_literal("_args"),
-        Method = make_method("arguments", "length"),
-        Right = make_call_expr(Method, []),
-        ArgsDef = make_assignment("=", Left, Right),
-        _Body = make_block_statement([
+        Cases   = lists:reverse([{null, "throw error", ?WITHOUTBREAK} | Acc]),
+        Switch  = make_switch(<<"_args">>, Cases),
+        Left    = make_literal("_args", []),
+        Method  = make_method("arguments", "length"),
+        Right   = make_call_expr(Method, []),
+        ArgsDef = make_operator("=", Left, Right, []),
+        _Body   = make_block_statement([
                                      ArgsDef,
                                      Switch
                                     ]);
@@ -64,7 +64,7 @@
     make_return(Ret) ->
         {obj,
          [
-          {"type", <<"ReturnStatement">>},
+          {"type",     <<"ReturnStatement">>},
           {"argument", {obj,
                         [
                          Ret
@@ -87,7 +87,7 @@
 
     make_switch(Variable, Cases) ->
         {obj, [
-               {"type", <<"SwitchStatement">>},
+               {"type",         <<"SwitchStatement">>},
                {"discriminant", {obj, [
                                        {"type", <<"Identifier">>},
                                        {"name", Variable}
@@ -113,8 +113,8 @@
                     false -> [Body]
                 end,
         NewAcc = {obj, [
-                        {"type", <<"SwitchCase">>},
-                        {"test", make_literal(Val)},
+                        {"type",       <<"SwitchCase">>},
+                        {"test",       make_literal(Val, [])},
                         {"consequent", Body2}
                        ]
                  },
@@ -127,28 +127,38 @@
               ]
         }.
 
-    make_literal(null) ->
+    make_identifier(Val, Loc) ->
+        {obj, lists:flatten([
+                             {"type", <<"Identifier">>},
+                             {"name", enc_v(Val)},
+                             Loc
+                            ])
+        }.
+
+    make_literal(null, _Loc) ->
         null;
-    make_literal(Val) ->
-        {obj, [
-               {"type", <<"Literal">>},
-               {"value", enc_v(Val)},
-               {"raw", raw_enc_v(Val)}
-              ]
+    make_literal(Val, Loc) ->
+        {obj, lists:flatten([
+                             {"type",  <<"Literal">>},
+                             {"value", enc_v(Val)},
+                             {"raw",   raw_enc_v(Val)},
+                             Loc
+                            ])
         }.
 
     make_method(Obj, Fn) ->
         {obj, [
-               {"type", <<"MemberExpression">>},
+               {"type",     <<"MemberExpression">>},
                {"computed", false},
-               {"object", [
-                           {"type", <<"Identifier">>},
-                           {"name", enc_v(Obj)}
-                           ]
+               {"object",   {obj, [
+                                   {"type", <<"Identifier">>},
+                                   {"name", enc_v(Obj)}
+                                ]
+                          }
                },
                {"property", {obj,
                              [
-                              {"type", <<"Idenfifier">>},
+                              {"type", <<"Identifier">>},
                               {"name", enc_v(Fn)}
                               ]
                              }
@@ -159,21 +169,26 @@
     make_call_expr(Callee, Args) ->
         {obj,
          [
-          Callee,
+          {"type",      <<"CallExpression">>},
+          {"callee",    Callee},
           {"arguments", enc_v(Args)}
          ]
         }.
 
-    make_assignment(Operator, Left, Right) ->
+    make_operator("=", Left, Right, Loc) ->
+        make_op2("=", <<"AssignmentExpression">>, Left, Right, Loc).
+
+    make_op2(Operator, OpDesc, Left, Right, Loc) ->
         {obj, [
-               {"type", <<"ExpressionStatement">>},
+               {"type",       <<"ExpressionStatement">>},
                {"expression", {obj,
-                               [
-                                {"type", <<"AssignmentExpression">>},
-                                {"operator", enc_v(Operator)},
-                                {"left", Left},
-                                {"right", Right}
-                               ]
+                               lists:flatten([
+                                              {"type",     OpDesc},
+                                              {"operator", enc_v(Operator)},
+                                              {"left",     Left},
+                                              {"right",    Right},
+                                              Loc
+                                             ])
                               }
                }
               ]
@@ -181,7 +196,7 @@
 
     make_expression(Expr) ->
         {obj, [
-               {"type", <<"ExpressionStatement">>},
+               {"type",       <<"ExpressionStatement">>},
                {"expression", Expr}
               ]
         }.
@@ -282,6 +297,13 @@ make_fn(Name,
 ```erlang
     -include_lib("eunit/include/eunit.hrl").
 
+    log_output(Strap, Got, Expected) ->
+        GotMsg = io_lib:format(Strap ++ "~n~p~n", [Got]),
+        ExpMsg = io_lib:format(Strap ++ "~n~p~n", [Expected]),
+        make_utils:plain_log(GotMsg, "/tmp/jast_got.log"),
+        make_utils:plain_log(ExpMsg, "/tmp/jast_exp.log"),
+        ok.
+
     switch_test_() ->
         Exp = {obj,[{"type",<<"SwitchStatement">>},
           {"discriminant",{obj,[{"type",<<"Identifier">>},{"name",<<"args">>}]}},
@@ -314,17 +336,16 @@ make_fn(Name,
                            {obj,[{"type",<<"Literal">>},
                                  {"value",<<"shirk">>},
                                  {"raw",<<"\"shirk\"">>}]}}]}]}]}]}]},
-        J = make_expression(make_literal("jerk")),
-        E = make_expression(make_literal("erk")),
-        S = make_expression(make_literal("shirk")),
+        J = make_expression(make_literal("jerk",  [])),
+        E = make_expression(make_literal("erk",   [])),
+        S = make_expression(make_literal("shirk", [])),
         Got = make_switch(<<"args">>, [{0,    J, ?WITHBREAK},
                                        {1,    E, ?WITHBREAK},
                                        {null, S, ?WITHOUTBREAK}]),
-        Msg = io_lib:format("switch_test~nExp is ~p~nGot is ~p~n", [Exp, Got]),
-        make_utils:plain_log(Msg, "/tmp/to_jast.log"),
+        %% log_output("Switch", Got, Exp),
         ?_assertEqual(Got, Exp).
 
-    args_test() ->
+    args_test_() ->
         Exp = {obj,[
                     {"type",<<"ExpressionStatement">>},
                     {"expression",
@@ -362,7 +383,7 @@ make_fn(Name,
                                         ]
                                    }
                                   },
-                                  {"arguments",[]}
+                                  {"arguments",<<>>}
                                  ]
                             }
                            }
@@ -371,15 +392,14 @@ make_fn(Name,
                     }
                    ]
               },
-        Left = make_literal("_args"),
+        Left   = make_identifier("_args", []),
         Method = make_method("arguments", "length"),
-        Right = make_call_expr(Method, []),
-        Got = make_assignment("=", Left, Right),
-        Msg = io_lib:format("args_test~nExp is ~p~nGot is ~p~n", [Exp, Got]),
-        make_utils:plain_log(Msg, "/tmp/to_jast.log"),
+        Right  = make_call_expr(Method, []),
+        Got    = make_operator("=", Left, Right, []),
+        %% log_output("Args", Got, Exp),
         ?_assertEqual(Got, Exp).
 
-    fns_test() ->
+    fns_test_() ->
         Exp = {obj,
                [
                 {"type",<<"ExpressionStatement">>},
@@ -425,15 +445,14 @@ make_fn(Name,
                      ]}}
                   ]}}
                ]},
-        FnName = "simplefn",
-        Params = [],
+        FnName   = "simplefn",
+        Params   = [],
         Defaults = [],
-        Literal = make_literal("banjolette"),
-        Return = make_return(Literal),
-        Body = make_block_statement(Return),
-        Got = make_fn(FnName, Params, Defaults, Body),
-        Msg = io_lib:format("args_test~nExp is ~p~nGot is ~p~n", [Exp, Got]),
-        make_utils:plain_log(Msg, "/tmp/to_jast.log"),
+        Literal  = make_literal("banjolette", []),
+        Return   = make_return(Literal),
+        Body     = make_block_statement(Return),
+        Got      = make_fn(FnName, Params, Defaults, Body),
+        log_output("Fns", Got, Exp),
         ?_assertEqual(Got, Exp).
 
 ```
