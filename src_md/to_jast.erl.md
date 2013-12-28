@@ -35,11 +35,12 @@
         io:format("Body is ~p~n", [Body]),
         ok.
 
-    conv({#c_var{} = FnName, FnList}, Context) ->
+    conv({#c_var{name = {FnName, _}} = CVar, FnList}, Context) ->
         io:format("Convert ~p ~p~n-using ~p~n", [FnName, FnList, Context]),
         FnBody = conv_fn(FnList, []),
-        io:format("FnBody is ~p~n", [FnBody]),
-        skipping.
+        Body = make_fn_body([], [], FnBody),
+        Loc = get_loc(CVar),
+        make_fn(FnName, Body, Loc).
 
     conv_fn([], Acc) ->
         %% add the default case
@@ -59,18 +60,18 @@
 
     conv_fn2(#c_fun{} = CFn) ->
         io:format("CFn is ~p~n", [CFn]),
-        xxxx_make_function_body.
+        Loc = get_loc(CFn),
+        conv_body(CFn#c_fun.body, Loc).
+
+    conv_body(Body, Loc) ->
+        io:format("Convert body ~p~n", [Body]),
+        xxx_make_body.
 
     make_return(Ret) ->
         {obj,
          [
           {"type",     <<"ReturnStatement">>},
-          {"argument", {obj,
-                        [
-                         Ret
-                        ]
-                       }
-          }
+          {"argument", Ret}
          ]
         }.
 
@@ -82,8 +83,22 @@
          ]
         }.
 
-    make_fn(_FnName, _Params, _Defaults, _Body) ->
-        xxxxmake_a_fn.
+    make_fn(FNName, Body, Loc) ->
+        Left = make_identifier(FNName, Loc),
+        _Expr = make_operator("=", Left, Body, Loc).
+
+    make_fn_body(Params, Defaults, Body) ->
+        {obj, [
+               {"type",       <<"FunctionExpression">>},
+               {"id",         null},
+               {"params",     Params},
+               {"defaults",   Defaults},
+               {"body",       Body},
+               {"rest",       null},
+               {"generator",  false},
+               {"expression", false}
+              ]
+        }.
 
     make_switch(Variable, Cases) ->
         {obj, [
@@ -202,8 +217,6 @@
         }.
 
 ```
-make_fn(Name,
-
 ```
  conv({integer, {Line, {ColStart, ColEnd}}, Int}, _Context) ->
      {
@@ -263,6 +276,13 @@ make_fn(Name,
      Fn;
 
 ```erlang
+    get_loc(Rec) ->
+        Attrs = element(2, Rec),
+        case lists:keyfind("loc", 1, Attrs) of
+            false -> [];
+            Loc   -> [Loc]
+        end.
+
     loc(Line, Start, End) ->
         {"loc", [{"start", [{"line", Line}, {"column", Start}]},
                  {"end",   [{"line", Line}, {"column", End}]}]}.
@@ -300,8 +320,9 @@ make_fn(Name,
     log_output(Strap, Got, Expected) ->
         GotMsg = io_lib:format(Strap ++ "~n~p~n", [Got]),
         ExpMsg = io_lib:format(Strap ++ "~n~p~n", [Expected]),
-        make_utils:plain_log(GotMsg, "/tmp/jast_got.log"),
-        make_utils:plain_log(ExpMsg, "/tmp/jast_exp.log"),
+        filelib:ensure_dir("/tmp/jast/junk.log"),
+        make_utils:plain_log(GotMsg, "/tmp/jast/got.log"),
+        make_utils:plain_log(ExpMsg, "/tmp/jast/exp.log"),
         ok.
 
     switch_test_() ->
@@ -450,10 +471,21 @@ make_fn(Name,
         Defaults = [],
         Literal  = make_literal("banjolette", []),
         Return   = make_return(Literal),
-        Body     = make_block_statement(Return),
-        Got      = make_fn(FnName, Params, Defaults, Body),
+        Body     = make_block_statement([Return]),
+        FnBody   = make_fn_body(Params, Defaults, Body),
+        Got      = make_fn(FnName, FnBody, []),
+        log("Literal", Literal),
+        log("Return",  Return),
+        log("Body",    Body),
+        log("FnBody",  FnBody),
+        log("Got",     Got),
         log_output("Fns", Got, Exp),
         ?_assertEqual(Got, Exp).
+
+    log(Prefix, Term) ->
+        filelib:ensure_dir("/tmp/jast/junk.log"),
+        Msg = io_lib:format(Prefix ++ "~n~p", [Term]),
+        make_utils:plain_log(Msg, "/tmp/jast/debug.log").
 
 ```
 ```

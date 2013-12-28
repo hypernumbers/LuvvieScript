@@ -1,9 +1,9 @@
-   @author    Gordon Guthrie
-   @copyright (C) 2013, Gordon Guthrie
-   @doc       This is the luvviescript compiler
-
-   @end
-   Created : 17 Aug 2013 by gordon@vixo.com
+    @author    Gordon Guthrie
+    @copyright (C) 2013, Gordon Guthrie
+    @doc       This is the luvviescript compiler
+ 
+    @end
+    Created : 17 Aug 2013 by gordon@vixo.com
 ```erlang
     -module(luvviescript).
 
@@ -15,10 +15,11 @@
     -include("luvviescript.hrl").
 ```
 ```
- include the core erlang syntax records that we are going to act on
- this file is in /usr/local/lib/erlang/lib/compiler-N.N.N/src
- or the equivalent. That dir needs to be set in the rebar compiler
- options for this to compile
+ ```
+  include the core erlang syntax records that we are going to act on
+  this file is in /usr/local/lib/erlang/lib/compiler-N.N.N/src
+  or the equivalent. That dir needs to be set in the rebar compiler
+  options for this to compile
 ```erlang
     -include_lib("core_parse.hrl").
 
@@ -65,8 +66,9 @@
     merge([], _Tokens, Acc) ->
         lists:reverse(Acc);
 ```
- ```
- drop the module_info fns
+```
+  ```
+  drop the module_info fns
 ```erlang
     merge([{#c_var{name = {module_info, _}}, _} | T], Tokens, Acc) ->
         merge(T, Tokens, Acc);
@@ -135,12 +137,13 @@
          end.
 
 ```
- ```
- Core Erlang uses 'made up' variable names in its function definitions
- We need to match these variable names to the ones used in the source
- code so that we can build a source map
- here we are stepping through the tokens of a function defintion
- to build the context
+```
+  ```
+  Core Erlang uses 'made up' variable names in its function definitions
+  We need to match these variable names to the ones used in the source
+  code so that we can build a source map
+  here we are stepping through the tokens of a function defintion
+  to build the context
 ```erlang
     get_matches([], Acc) ->
         lists:reverse(Acc);
@@ -252,9 +255,10 @@
         NewAcc = {WS, {Line, Indent}, white_space},
         make_entry(T, NewIndent, [NewAcc | Acc]);
 ```
- ```
- comments are either whole line (don't care about the length)
- or at the end of a line followed by whitespace (don't care about the length).
+```
+  ```
+  comments are either whole line (don't care about the length)
+  or at the end of a line followed by whitespace (don't care about the length).
 ```erlang
     make_entry([{comment, _, _} | T], Indent, Acc) ->
         make_entry(T, Indent, Acc);
@@ -319,4 +323,5 @@
         NewExps = lists:filter(FilterFn, Exps),
         CMod#c_module{exports = NewExps}.
 
+```
 ```
