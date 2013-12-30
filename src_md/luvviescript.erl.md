@@ -33,7 +33,7 @@
         %% not the plain one, so we create that version first
         {ok, DotP2} = make_dot_P2(File),
         {ok, _, Syntax} = compile_to_ast(File),
-        ok = maybe_write(Environment, File, Syntax, ".ast"),
+        ok = maybe_write(Environment, File, Syntax, ".ast", term),
         #c_module{defs = Body} = Syntax,
         %% Erlang regards somefun/1 and somefun/N as two differnt
         %% fns, Javascript thinks they are they same.
@@ -44,7 +44,7 @@
                  end,
         Body2 = lists:sort(SortFn, Body),
         Syntax2 = Syntax#c_module{defs = Body2},
-        ok = maybe_write(Environment, File, Syntax2, ".ast2"),
+        ok = maybe_write(Environment, File, Syntax2, ".ast2", term),
         %% we are going to use a .P file as the souce file for the purposes of
         %% having a source map. .P files have predictable and normalised layout
         %% which makes it possible to use them to collect column information
@@ -55,14 +55,17 @@
                                            return_comments,
                                            text
                                           ]),
-        ok = maybe_write(Environment, File, Tokens, ".tks"),
+        ok = maybe_write(Environment, File, Tokens, ".tks", term),
         {ok, Tokens2} = collect_tokens(Tokens),
-        ok = maybe_write(Environment, File, Tokens2, ".tks2"),
+        ok = maybe_write(Environment, File, Tokens2, ".tks2", term),
         Body3 = merge(Syntax2#c_module.defs, Tokens2, []),
         Syntax3 = fix_exports(Syntax2#c_module{defs = Body3}),
-        ok = maybe_write(Environment, File, Syntax3, ".ast3"),
+        ok = maybe_write(Environment, File, Syntax3, ".ast3", term),
         Jast = to_jast:conv(Syntax3),
-        ok = maybe_write(Environment, File, Jast, ".jast").
+        ok = maybe_write(Environment, File, Jast, ".jast", term),
+        Jast2 = io_lib:format("~s", [rfc4627:encode(Jast)]),
+        ok = maybe_write(Environment, File, Jast2, ".jast2", string),
+        ok.
 
     merge([], _Tokens, Acc) ->
         lists:reverse(Acc);
@@ -282,16 +285,16 @@
         {ok, _} = compile:file(File, [{i, IncDir}, {outdir, ODir}, to_core]),
         ok.
 
-    maybe_write(production, _, _, _) ->
+    maybe_write(production, _, _, _, _) ->
         ok;
-    maybe_write(debug, File, Contents, FileType) ->
+    maybe_write(debug, File, Contents, FileType, Format) ->
         OutputDir = filename:dirname(File) ++ "/../debug/",
-        write(OutputDir, File, Contents, FileType).
+        write(OutputDir, File, Contents, FileType, Format).
 
-    write(Dir, File, Contents, FileType) ->
+    write(Dir, File, Contents, FileType, Format) ->
         OutputFile = filename:rootname(filename:basename(File)) ++ FileType,
         _Return = filelib:ensure_dir(File),
-        ok = make_utils:write_file(Contents, Dir ++ OutputFile).
+        ok = make_utils:write_file(Contents, Dir ++ OutputFile, Format).
 
     get_line_var(Rec) when is_tuple(Rec) ->
         Attrs = element(2, Rec),

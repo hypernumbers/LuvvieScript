@@ -19,6 +19,8 @@
 
     -define(WITHBREAK,    true).
     -define(WITHOUTBREAK, false).
+    -define(NOSRCMAPINFO, []).
+    -define(PATTERNMATCHFAIL, make_fail()).
 
     conv(#c_module{} = Module) ->
         #c_module{anno    = Annotations,
@@ -32,24 +34,53 @@
         Context = #js_context{name    = Name,
                                exports = Exports},
         Body = [conv(X, Context) || X <- Defs],
-        io:format("Body is ~p~n", [Body]),
-        ok.
+        Exp  = conv_exports(Exports),
+        make_programme(Exp ++ Body).
 
     conv({#c_var{name = {FnName, _}} = CVar, FnList}, Context) ->
-        io:format("Convert ~p ~p~n-using ~p~n", [FnName, FnList, Context]),
-        FnBody = conv_fn(FnList, []),
+        FnBody = conv_fn(FnList, ?NOSRCMAPINFO),
         Body = make_fn_body([], [], FnBody),
         Loc = get_loc(CVar),
         make_fn(FnName, Body, Loc).
 
+    conv_exports(Exports) ->
+        Exps2 = group_exps_of_diff_arity(Exports),
+        [conv_exp(X) || X <- Exps2].
+
+    conv_exp({Fn, Arities}) ->
+        Call    = make_call_expr(Fn, ?NOSRCMAPINFO),
+        Cases   = [{X, Call, ?WITHBREAK} || X <- Arities] ++
+            [{null, ?PATTERNMATCHFAIL, ?WITHOUTBREAK}],
+        Switch  = make_switch(<<"_args">>, Cases),
+        Left    = make_literal("_args", ?NOSRCMAPINFO),
+        Method  = make_method("arguments", "length"),
+        Right   = make_call_expr(Method, ?NOSRCMAPINFO),
+        ArgsDef = make_operator("=", Left, Right, ?NOSRCMAPINFO),
+        Body    = make_block_statement([
+                                        ArgsDef,
+                                        Switch
+                                       ]),
+        FnName  = make_method("exports", Fn),
+        _Return = make_operator("=", FnName, Body, ?NOSRCMAPINFO).
+
+    group_exps_of_diff_arity(Exports) ->
+        GroupFn = fun(#c_var{name = {Fn, Arity}}, List) ->
+                          NewT = case lists:keyfind(Fn, 1, List) of
+                                     false -> {Fn, [Arity]};
+                                     {Fn, As} -> {Fn, [Arity | As]}
+                                 end,
+                          lists:keystore(Fn, 1, List, NewT)
+                  end,
+        lists:foldl(GroupFn, [], Exports).
+
     conv_fn([], Acc) ->
         %% add the default case
-        Cases   = lists:reverse([{null, "throw error", ?WITHOUTBREAK} | Acc]),
+        Cases   = lists:reverse([{null, ?PATTERNMATCHFAIL, ?WITHOUTBREAK} | Acc]),
         Switch  = make_switch(<<"_args">>, Cases),
-        Left    = make_literal("_args", []),
+        Left    = make_literal("_args", ?NOSRCMAPINFO),
         Method  = make_method("arguments", "length"),
-        Right   = make_call_expr(Method, []),
-        ArgsDef = make_operator("=", Left, Right, []),
+        Right   = make_call_expr(Method, ?NOSRCMAPINFO),
+        ArgsDef = make_operator("=", Left, Right, ?NOSRCMAPINFO),
         _Body   = make_block_statement([
                                      ArgsDef,
                                      Switch
@@ -59,13 +90,17 @@
         conv_fn(T, [NewAcc | Acc]).
 
     conv_fn2(#c_fun{} = CFn) ->
-        io:format("CFn is ~p~n", [CFn]),
-        Loc = get_loc(CFn),
-        conv_body(CFn#c_fun.body, Loc).
+        conv_body(CFn#c_fun.body).
 
-    conv_body(Body, Loc) ->
+    conv_body(#c_literal{val = Val} = Body) ->
+        Loc = get_loc(Body),
+        make_literal(Val, Loc);
+    conv_body(Body) ->
         io:format("Convert body ~p~n", [Body]),
         xxx_make_body.
+
+    make_fail() ->
+        make_literal("throw error", ?NOSRCMAPINFO).
 
     make_return(Ret) ->
         {obj,
@@ -325,6 +360,11 @@
         make_utils:plain_log(ExpMsg, "/tmp/jast/exp.log"),
         ok.
 
+    log(Prefix, Term) ->
+        filelib:ensure_dir("/tmp/jast/junk.log"),
+        Msg = io_lib:format(Prefix ++ "~n~p", [Term]),
+        make_utils:plain_log(Msg, "/tmp/jast/debug.log").
+
     switch_test_() ->
         Exp = {obj,[{"type",<<"SwitchStatement">>},
           {"discriminant",{obj,[{"type",<<"Identifier">>},{"name",<<"args">>}]}},
@@ -481,11 +521,6 @@
         log("Got",     Got),
         log_output("Fns", Got, Exp),
         ?_assertEqual(Got, Exp).
-
-    log(Prefix, Term) ->
-        filelib:ensure_dir("/tmp/jast/junk.log"),
-        Msg = io_lib:format(Prefix ++ "~n~p", [Term]),
-        make_utils:plain_log(Msg, "/tmp/jast/debug.log").
 
 ```
 ```

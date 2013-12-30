@@ -12,7 +12,7 @@
              compile/1,
              compile/2,
              make_tests/1,
-             write_file/2
+             write_file/3
             ]).
 
 ```
@@ -105,7 +105,7 @@
         Output = luvviescript:compile(File, Environment),
         OutputFile = filename:basename(filename:rootname(File)) ++ ".js",
         OutputDir = filename:dirname(File) ++ "/../js/",
-        ok = write_file(Output, OutputDir ++ OutputFile).
+        ok = write_file(Output, OutputDir ++ OutputFile, string).
 
     clear_old_files(Dir) ->
         case file:list_dir(Dir) of
@@ -126,11 +126,16 @@
             false -> filelib:ensure_dir(Dir ++ "/nonce.file")
         end.
 
-    write_file(Term, File) ->
+    write_file(Term, File, term) ->
+        write_f2(Term, File, "~p~n");
+    write_file(Term, File, string) ->
+    write_f2(Term, File, "~s~n").
+
+    write_f2(Term, File, Format) ->
         _Return = filelib:ensure_dir(File),
         case file:open(File, [write]) of
             {ok, Id} ->
-                io:fwrite(Id, "~p~n", [Term]),
+                io:fwrite(Id, Format, [Term]),
                 file:close(Id);
             _ ->
                 error
