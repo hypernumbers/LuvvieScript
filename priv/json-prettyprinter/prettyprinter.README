@@ -1,0 +1,3 @@
+To use this pretty printer simply cat a json file through it and pipe the output to a file
+
+cat somefile.json | ./path/to/prettyjson.py > somefile.pretty.json
