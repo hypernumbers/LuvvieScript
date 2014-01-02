@@ -6,4 +6,4 @@
          simplestfn/0
         ]).
 
-simplestfn() -> banjolette.
+simplestfn() -> "banjolette".
