@@ -98,14 +98,8 @@
         code:add_patha("ebin/"),
         Dir2 = Dir  ++ "/src/",
         Files = filelib:wildcard(Dir2 ++ "*.erl"),
-        [ok = output(File, Environment) || File <- Files],
+        [ok = luvviescript:compile(File, Environment) || File <- Files],
         ok.
-
-    output(File, Environment) ->
-        Output = luvviescript:compile(File, Environment),
-        OutputFile = filename:basename(filename:rootname(File)) ++ ".js",
-        OutputDir = filename:dirname(File) ++ "/../js/",
-        ok = write_file(Output, OutputDir ++ OutputFile, string).
 
     clear_old_files(Dir) ->
         case file:list_dir(Dir) of

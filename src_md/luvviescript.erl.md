@@ -28,6 +28,8 @@
 
     compile(File, Environment) ->
         io:format("Compiling ~p~n", [File]),
+        %% for debugging we write out the source code of the Erlang core
+        %% file whose AST we will be transforming
         ok = maybe_core(Environment, File),
         %% we are going to compile the .P2 version of the Erlang file
         %% not the plain one, so we create that version first
@@ -35,7 +37,7 @@
         {ok, _, Syntax} = compile_to_ast(File),
         ok = maybe_write(Environment, File, Syntax, ".ast", term),
         #c_module{defs = Body} = Syntax,
-        %% Erlang regards somefun/1 and somefun/N as two differnt
+        %% Erlang regards somefun/1 and somefun/N as two different
         %% fns, Javascript thinks they are they same.
         %% so we need to group multiple arity erlang fns.
         %% easiest way to do that is to sort the fns by name/arity
@@ -47,7 +49,7 @@
         ok = maybe_write(Environment, File, Syntax2, ".ast2", term),
         %% we are going to use a .P file as the souce file for the purposes of
         %% having a source map. .P files have predictable and normalised layout
-        %% which makes it possible to use them to collect column information
+        %% which makes it easier to use them to collect column information
         %% for the source map file
         {ok, Tokens, _} = erl_scan:string(lists:flatten(DotP2), 1,
                                           [
@@ -56,15 +58,40 @@
                                            text
                                           ]),
         ok = maybe_write(Environment, File, Tokens, ".tks", term),
+        %% now we collect all the tokens with the line/col information
         {ok, Tokens2} = collect_tokens(Tokens),
         ok = maybe_write(Environment, File, Tokens2, ".tks2", term),
+        %% now transform the Erlang core AST file by merging in the column
+        %% information from the collected tokens so that we can write the
+        %% Javascript AST with the right info to get a Source Map
         Body3 = merge(Syntax2#c_module.defs, Tokens2, []),
         Syntax3 = fix_exports(Syntax2#c_module{defs = Body3}),
         ok = maybe_write(Environment, File, Syntax3, ".ast3", term),
+        %% finally we can start coverting Erlang (core) to Javascript
         Jast = to_jast:conv(Syntax3),
         ok = maybe_write(Environment, File, Jast, ".jast", term),
+        %% ok = debug_json:debug(Jast),
         Jast2 = io_lib:format("~s", [rfc4627:encode(Jast)]),
         ok = maybe_write(Environment, File, Jast2, ".jast2", string),
+        %% life is easier for everyone if the json we output is actually
+        %% readable so make it so
+        ok = pretty_print_json(File),
+        %% now turn our json AST for Javascript into actual Javascript
+        ok = make_javascript(File),
+        ok.
+
+    make_javascript(File) ->
+        DirIn    = filename:dirname(File) ++ "/../debug/",
+        DirOut   = filename:dirname(File) ++ "/../js/",
+        FileRoot = filename:rootname(filename:basename(File)),
+        FileIn   = DirIn  ++ FileRoot ++ ".json",
+        FileOut  = DirOut ++ FileRoot ++ ".js",
+        CodeGen  = "/usr/local/bin/escodegen-cl2",
+        io:format("FileIn is ~p~nFileOut is ~p~n", [FileIn, FileOut]),
+        case os:cmd("cat " ++ FileIn ++ " | " ++ CodeGen ++ " > " ++ FileOut) of
+            []  -> ok; % fine and doody
+            Msg -> io:format("Invalid JSON AST for ~p~n" ++ Msg, [FileOut])
+        end,
         ok.
 
     merge([], _Tokens, Acc) ->
@@ -276,6 +303,15 @@
     make_location([{line, Ln}, {text, Txt}], Indent) ->
         End = Indent + length(Txt),
         {{Ln, {Indent, End}}, End + 1}.
+
+    pretty_print_json(File) ->
+        Dir      = filename:dirname(File) ++ "/../debug/",
+        FileRoot = Dir ++ filename:rootname(filename:basename(File)),
+        FileIn   = FileRoot ++ ".jast2",
+        FileOut  = FileRoot ++ ".json",
+        PP       = "priv/json-prettyprinter/prettyjson.py",
+        [] = os:cmd("cat " ++ FileIn ++ " | " ++ PP ++ " > " ++ FileOut),
+        ok.
 
     maybe_core(production, _) ->
         ok;

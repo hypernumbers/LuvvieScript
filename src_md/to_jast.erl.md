@@ -21,6 +21,7 @@
     -define(WITHOUTBREAK, false).
     -define(NOSRCMAPINFO, []).
     -define(PATTERNMATCHFAIL, make_fail()).
+    -define(EMPTYJSONLIST, []).
 
     conv(#c_module{} = Module) ->
         #c_module{anno    = Annotations,
@@ -28,18 +29,19 @@
                   exports = Exports,
                   attrs   = Attrs,
                   defs    = Defs} = Module,
-        io:format("Module is called ~p~n-Annotations is ~p~n-Exports is ~p~n" ++
-                      "-Attrs is ~p~n-Defs is ~p~n",
-                  [Name, Annotations, Exports, Attrs, Defs]),
+        %% io:format("Module is called ~p~n-Annotations is ~p~n-Exports is ~p~n" ++
+        %%               "-Attrs is ~p~n-Defs is ~p~n",
+        %%           [Name, Annotations, Exports, Attrs, Defs]),
         Context = #js_context{name    = Name,
                                exports = Exports},
         Body = [conv(X, Context) || X <- Defs],
         Exp  = conv_exports(Exports),
+
         make_programme(Exp ++ Body).
 
     conv({#c_var{name = {FnName, _}} = CVar, FnList}, Context) ->
         FnBody = conv_fn(FnList, ?NOSRCMAPINFO),
-        Body = make_fn_body([], [], FnBody),
+        Body = make_fn_body(?EMPTYJSONLIST, ?EMPTYJSONLIST, FnBody),
         Loc = get_loc(CVar),
         make_fn(FnName, Body, Loc).
 
@@ -48,11 +50,11 @@
         [conv_exp(X) || X <- Exps2].
 
     conv_exp({Fn, Arities}) ->
-        Call    = make_call_expr(Fn, ?NOSRCMAPINFO),
-        Cases   = [{X, Call, ?WITHBREAK} || X <- Arities] ++
+        Call    = make_call_expr(make_literal(Fn, ?NOSRCMAPINFO), ?NOSRCMAPINFO),
+        Cases   = [{X, make_expression(Call), ?WITHBREAK} || X <- Arities] ++
             [{null, ?PATTERNMATCHFAIL, ?WITHOUTBREAK}],
         Switch  = make_switch(<<"_args">>, Cases),
-        Left    = make_literal("_args", ?NOSRCMAPINFO),
+        Left    = make_identifier("_args", ?NOSRCMAPINFO),
         Method  = make_method("arguments", "length"),
         Right   = make_call_expr(Method, ?NOSRCMAPINFO),
         ArgsDef = make_operator("=", Left, Right, ?NOSRCMAPINFO),
@@ -60,8 +62,9 @@
                                         ArgsDef,
                                         Switch
                                        ]),
+        FnBody = make_fn_body(?EMPTYJSONLIST, ?EMPTYJSONLIST, Body),
         FnName  = make_method("exports", Fn),
-        _Return = make_operator("=", FnName, Body, ?NOSRCMAPINFO).
+        _Return = make_fn(FnName, FnBody, ?NOSRCMAPINFO).
 
     group_exps_of_diff_arity(Exports) ->
         GroupFn = fun(#c_var{name = {Fn, Arity}}, List) ->
@@ -77,7 +80,7 @@
         %% add the default case
         Cases   = lists:reverse([{null, ?PATTERNMATCHFAIL, ?WITHOUTBREAK} | Acc]),
         Switch  = make_switch(<<"_args">>, Cases),
-        Left    = make_literal("_args", ?NOSRCMAPINFO),
+        Left    = make_identifier("_args", ?NOSRCMAPINFO),
         Method  = make_method("arguments", "length"),
         Right   = make_call_expr(Method, ?NOSRCMAPINFO),
         ArgsDef = make_operator("=", Left, Right, ?NOSRCMAPINFO),
@@ -94,13 +97,13 @@
 
     conv_body(#c_literal{val = Val} = Body) ->
         Loc = get_loc(Body),
-        make_literal(Val, Loc);
+        make_expression(make_literal(Val, Loc));
     conv_body(Body) ->
         io:format("Convert body ~p~n", [Body]),
         xxx_make_body.
 
     make_fail() ->
-        make_literal("throw error", ?NOSRCMAPINFO).
+        make_expression(make_literal("throw error", ?NOSRCMAPINFO)).
 
     make_return(Ret) ->
         {obj,
@@ -323,7 +326,7 @@
                  {"end",   [{"line", Line}, {"column", End}]}]}.
 
     raw_enc_v(Str)  when is_list(Str)    -> enc_v("\"" ++ Str ++ "\"");
-    raw_enc_v(Atom) when is_atom(Atom)   -> Atom;
+    raw_enc_v(Atom) when is_atom(Atom)   -> Atom;  %% Todo fix up
     raw_enc_v(Int)  when is_integer(Int) -> list_to_binary(integer_to_list(Int));
     raw_enc_v(Flt)  when is_float(Flt)   ->
         %% definetaly a better way to test this (3.0 = "3")
@@ -333,10 +336,12 @@
               end,
         list_to_binary(Str).
 
-    enc_v(Str)  when is_list(Str)    -> list_to_binary(Str);
-    enc_v(Atom) when is_atom(Atom)   -> Atom;
-    enc_v(Int)  when is_integer(Int) -> Int;
-    enc_v(Flt)  when is_float(Flt)   -> Flt.
+    enc_v([])                         -> [];
+    enc_v(Str)   when is_list(Str)    -> list_to_binary(Str);
+    enc_v(Atom)  when is_atom(Atom)   -> Atom;
+    enc_v(Int)   when is_integer(Int) -> Int;
+    enc_v(Flt)   when is_float(Flt)   -> Flt;
+    enc_v(Tuple) when is_tuple(Tuple) -> Tuple.
 
 ```
 ```
@@ -397,13 +402,13 @@
                            {obj,[{"type",<<"Literal">>},
                                  {"value",<<"shirk">>},
                                  {"raw",<<"\"shirk\"">>}]}}]}]}]}]}]},
-        J = make_expression(make_literal("jerk",  [])),
-        E = make_expression(make_literal("erk",   [])),
-        S = make_expression(make_literal("shirk", [])),
+        J = make_expression(make_literal("jerk",  ?NOSRCMAPINFO)),
+        E = make_expression(make_literal("erk",   ?NOSRCMAPINFO)),
+        S = make_expression(make_literal("shirk", ?NOSRCMAPINFO)),
         Got = make_switch(<<"args">>, [{0,    J, ?WITHBREAK},
                                        {1,    E, ?WITHBREAK},
                                        {null, S, ?WITHOUTBREAK}]),
-        %% log_output("Switch", Got, Exp),
+        log_output("Switch", Got, Exp),
         ?_assertEqual(Got, Exp).
 
     args_test_() ->
@@ -444,7 +449,7 @@
                                         ]
                                    }
                                   },
-                                  {"arguments",<<>>}
+                                  {"arguments", []}
                                  ]
                             }
                            }
@@ -453,10 +458,10 @@
                     }
                    ]
               },
-        Left   = make_identifier("_args", []),
+        Left   = make_identifier("_args", ?NOSRCMAPINFO),
         Method = make_method("arguments", "length"),
-        Right  = make_call_expr(Method, []),
-        Got    = make_operator("=", Left, Right, []),
+        Right  = make_call_expr(Method, ?NOSRCMAPINFO),
+        Got    = make_operator("=", Left, Right, ?NOSRCMAPINFO),
         %% log_output("Args", Got, Exp),
         ?_assertEqual(Got, Exp).
 
@@ -507,19 +512,19 @@
                   ]}}
                ]},
         FnName   = "simplefn",
-        Params   = [],
-        Defaults = [],
-        Literal  = make_literal("banjolette", []),
+        Params   = ?EMPTYJSONLIST,
+        Defaults = ?EMPTYJSONLIST,
+        Literal  = make_literal("banjolette", ?NOSRCMAPINFO),
         Return   = make_return(Literal),
         Body     = make_block_statement([Return]),
         FnBody   = make_fn_body(Params, Defaults, Body),
-        Got      = make_fn(FnName, FnBody, []),
+        Got      = make_fn(FnName, FnBody, ?NOSRCMAPINFO),
         log("Literal", Literal),
         log("Return",  Return),
         log("Body",    Body),
         log("FnBody",  FnBody),
         log("Got",     Got),
-        log_output("Fns", Got, Exp),
+        %% log_output("Fns", Got, Exp),
         ?_assertEqual(Got, Exp).
 
 ```
