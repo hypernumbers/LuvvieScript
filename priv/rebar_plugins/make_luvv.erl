@@ -14,8 +14,14 @@
 -define(JSDIR,     "js/").
 -define(TESTDIRS,  ["test/passing", "test/not_passing"]).
 
-make_luvv(_A, _B) ->
-    true = code:add_patha("./ebin"),
-    [ok = make_utils:compile(X, debug) || X <- ?TESTDIRS],
-    ok.
+make_luvv(_Config, AppFile) ->
+    App = filename:basename(AppFile),
+    case App of
+        "luvviescript.app.src" ->
+            true = code:add_patha("./ebin"),
+            [ok = make_utils:compile(X, debug) || X <- ?TESTDIRS],
+            ok;
+        _ ->
+            ok
+    end.
 
