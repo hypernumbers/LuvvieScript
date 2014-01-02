@@ -32,6 +32,16 @@ Contributing
 
 Contributing to LuvvieScript is easy - understand how the project is developing and then get cracking. The next few sections outline what you need to know, and then at the end there is a getting started section.
 
+Installing Software
+===================
+
+You need to install some node modules
+
+    sudo npm install -g escodegen
+    sudo npm install -g esparse-cl2
+
+There is a command line pretty printer included which requires you to have Python installed
+
 Modailities
 ===========
 
