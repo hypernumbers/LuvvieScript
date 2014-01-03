@@ -17,12 +17,13 @@
     -include_lib("core_parse.hrl").
     -include("luvviescript.hrl").
 
-    -define(WITHBREAK,    true).
-    -define(WITHOUTBREAK, false).
-    -define(NOSRCMAPINFO, []).
+    -define(WITHBREAK,        true).
+    -define(WITHOUTBREAK,     false).
+    -define(NOSRCMAPINFO,     []).
     -define(PATTERNMATCHFAIL, make_fail()).
-    -define(EMPTYJSONLIST, []).
-    -define(NOTINITIALISED, []).
+    -define(EMPTYJSONLIST,    []).
+    -define(NOTINITIALISED,   []).
+    -define(EMPTYOBJECT,      make_object({obj, []})).
 
     conv(#c_module{} = Module) ->
         #c_module{anno    = Annotations,
@@ -31,11 +32,11 @@
                   attrs   = Attrs,
                   defs    = Defs} = Module,
         %% io:format("Module is called ~p~n-Annotations is ~p~n-Exports is ~p~n" ++
-        %%               "-Attrs is ~p~n-Defs is ~p~n",
-        %%           [Name, Annotations, Exports, Attrs, Defs]),
+        %%              "-Attrs is ~p~n-Defs is ~p~n",
+        %%          [Name, Annotations, Exports, Attrs, Defs]),
         Context = #js_context{name    = Name,
                               exports = Exports},
-        Decl = make_declarations([{<<"exports">>, ?NOTINITIALISED}]),
+        Decl = make_declarations([{<<"exports">>, ?EMPTYOBJECT}]),
         Body = [conv(X, Context) || X <- Defs],
         Exp  = conv_exports(Exports),
 
@@ -45,7 +46,7 @@
         FnBody = conv_fn(FnList, ?NOSRCMAPINFO),
         Body = make_fn_body(?EMPTYJSONLIST, ?EMPTYJSONLIST, FnBody),
         Loc = get_loc(CVar),
-        Left = make_identifier(FnName, Loc),
+        Left = make_identifier(atom_to_list(FnName), Loc),
         make_fn(Left, Body, Loc).
 
     conv_exports(Exports) ->
@@ -53,7 +54,8 @@
         [conv_exp(X) || X <- Exps2].
 
     conv_exp({Fn, Arities}) ->
-        Call    = make_call_expr(make_literal(Fn, ?NOSRCMAPINFO), ?NOSRCMAPINFO),
+        FnName  = make_identifier(atom_to_list(Fn), ?NOSRCMAPINFO),
+        Call    = make_call_expr(FnName, ?NOSRCMAPINFO),
         Cases   = [{X, make_expression(Call), ?WITHBREAK} || X <- Arities] ++
             [{null, ?PATTERNMATCHFAIL, ?WITHOUTBREAK}],
         Switch  = make_switch(<<"_args">>, Cases),
@@ -66,8 +68,8 @@
                                         Switch
                                        ]),
         FnBody  = make_fn_body(?EMPTYJSONLIST, ?EMPTYJSONLIST, Body),
-        FnName  = make_method("exports", Fn),
-        _Return = make_fn(FnName, FnBody, ?NOSRCMAPINFO).
+        FnVar   = make_method("exports", Fn),
+        _Return = make_fn(FnVar, FnBody, ?NOSRCMAPINFO).
 
     group_exps_of_diff_arity(Exports) ->
         GroupFn = fun(#c_var{name = {Fn, Arity}}, List) ->
@@ -114,6 +116,13 @@
                {"type",         <<"VariableDeclaration">>},
                {"declarations", Decs},
                {"kind",         <<"var">>}
+               ]
+        }.
+
+    make_object({obj, List}) when is_list(List) ->
+        {obj, [
+               {"type",       <<"ObjectExpression">>},
+               {"properties", List}
                ]
         }.
 
