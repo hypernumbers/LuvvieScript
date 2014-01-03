@@ -22,6 +22,7 @@
     -define(NOSRCMAPINFO, []).
     -define(PATTERNMATCHFAIL, make_fail()).
     -define(EMPTYJSONLIST, []).
+    -define(NOTINITIALISED, []).
 
     conv(#c_module{} = Module) ->
         #c_module{anno    = Annotations,
@@ -33,17 +34,19 @@
         %%               "-Attrs is ~p~n-Defs is ~p~n",
         %%           [Name, Annotations, Exports, Attrs, Defs]),
         Context = #js_context{name    = Name,
-                               exports = Exports},
+                              exports = Exports},
+        Decl = make_declarations([{<<"exports">>, ?NOTINITIALISED}]),
         Body = [conv(X, Context) || X <- Defs],
         Exp  = conv_exports(Exports),
 
-        make_programme(Exp ++ Body).
+        make_programme([Decl] ++ Exp ++ Body).
 
     conv({#c_var{name = {FnName, _}} = CVar, FnList}, Context) ->
         FnBody = conv_fn(FnList, ?NOSRCMAPINFO),
         Body = make_fn_body(?EMPTYJSONLIST, ?EMPTYJSONLIST, FnBody),
         Loc = get_loc(CVar),
-        make_fn(FnName, Body, Loc).
+        Left = make_identifier(FnName, Loc),
+        make_fn(Left, Body, Loc).
 
     conv_exports(Exports) ->
         Exps2 = group_exps_of_diff_arity(Exports),
@@ -62,7 +65,7 @@
                                         ArgsDef,
                                         Switch
                                        ]),
-        FnBody = make_fn_body(?EMPTYJSONLIST, ?EMPTYJSONLIST, Body),
+        FnBody  = make_fn_body(?EMPTYJSONLIST, ?EMPTYJSONLIST, Body),
         FnName  = make_method("exports", Fn),
         _Return = make_fn(FnName, FnBody, ?NOSRCMAPINFO).
 
@@ -105,6 +108,33 @@
     make_fail() ->
         make_expression(make_literal("throw error", ?NOSRCMAPINFO)).
 
+    make_declarations(List) when is_list(List) ->
+        Decs = make_decs(List, []),
+        {obj, [
+               {"type",         <<"VariableDeclaration">>},
+               {"declarations", Decs},
+               {"kind",         <<"var">>}
+               ]
+        }.
+
+    make_decs([], Acc) ->
+        lists:reverse(Acc);
+    make_decs([{Name, []} | T], Acc) when is_binary(Name) ->
+        make_decs([{Name, null} | T], Acc);
+    make_decs([{Name, Init} | T], Acc) when is_binary(Name) ->
+        NewAcc = {obj, [
+                        {"type", <<"VariableDeclarator">>},
+                        {"id",   {obj, [
+                                        {"type", <<"Identifier">>},
+                                        {"name", Name}
+                                       ]
+                                 }
+                        },
+                        {"init", Init}
+                       ]
+                 },
+        make_decs(T, [NewAcc | Acc]).
+
     make_return(Ret) ->
         {obj,
          [
@@ -121,8 +151,7 @@
          ]
         }.
 
-    make_fn(FNName, Body, Loc) ->
-        Left = make_identifier(FNName, Loc),
+    make_fn(Left, Body, Loc) ->
         _Expr = make_operator("=", Left, Body, Loc).
 
     make_fn_body(Params, Defaults, Body) ->

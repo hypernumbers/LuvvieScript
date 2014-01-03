@@ -87,7 +87,6 @@
         FileIn   = DirIn  ++ FileRoot ++ ".json",
         FileOut  = DirOut ++ FileRoot ++ ".js",
         CodeGen  = "/usr/local/bin/escodegen-cl2",
-        io:format("FileIn is ~p~nFileOut is ~p~n", [FileIn, FileOut]),
         case os:cmd("cat " ++ FileIn ++ " | " ++ CodeGen ++ " > " ++ FileOut) of
             []  -> ok; % fine and doody
             Msg -> io:format("Invalid JSON AST for ~p~n" ++ Msg, [FileOut])
