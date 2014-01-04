@@ -39,6 +39,7 @@ You need to install some node modules
 
     sudo npm install -g escodegen
     sudo npm install -g esparse-cl2
+    sudo npm install -g source-map
 
 There is a command line pretty printer included which requires you to have Python installed
 
