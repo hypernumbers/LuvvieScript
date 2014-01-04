@@ -6,7 +6,7 @@
  in to_jast.erl
 
 ```erlang
-    -module(make_tests).
+    -module(test_utils).
 
     -export([
              generate_switch/0,
