@@ -56,12 +56,12 @@
     conv_exp({Fn, Arities}) ->
         FnName  = make_identifier(atom_to_list(Fn), ?NOSRCMAPINFO),
         Call    = make_call_expr(FnName, ?NOSRCMAPINFO),
-        Cases   = [{X, make_expression(Call), ?WITHBREAK} || X <- Arities] ++
-            [{null, ?PATTERNMATCHFAIL, ?WITHOUTBREAK}],
+        Call2   = make_return(Call),
+        Cases   = [{X, Call2, ?WITHBREAK} || X <- Arities] ++
+            [{null, make_return(?PATTERNMATCHFAIL), ?WITHOUTBREAK}],
         Switch  = make_switch(<<"_args">>, Cases),
         Left    = make_identifier("_args", ?NOSRCMAPINFO),
-        Method  = make_method("arguments", "length"),
-        Right   = make_call_expr(Method, ?NOSRCMAPINFO),
+        Right   = make_method("arguments", "length"),
         ArgsDef = make_operator("=", Left, Right, ?NOSRCMAPINFO),
         Body    = make_block_statement([
                                         ArgsDef,
@@ -83,11 +83,11 @@
 
     conv_fn([], Acc) ->
         %% add the default case
-        Cases   = lists:reverse([{null, ?PATTERNMATCHFAIL, ?WITHOUTBREAK} | Acc]),
+        Cases   = lists:reverse([{null, make_return(?PATTERNMATCHFAIL),
+                                  ?WITHOUTBREAK} | Acc]),
         Switch  = make_switch(<<"_args">>, Cases),
         Left    = make_identifier("_args", ?NOSRCMAPINFO),
-        Method  = make_method("arguments", "length"),
-        Right   = make_call_expr(Method, ?NOSRCMAPINFO),
+        Right   = make_method("arguments", "length"),
         ArgsDef = make_operator("=", Left, Right, ?NOSRCMAPINFO),
         _Body   = make_block_statement([
                                      ArgsDef,
@@ -102,13 +102,20 @@
 
     conv_body(#c_literal{val = Val} = Body) ->
         Loc = get_loc(Body),
-        make_expression(make_literal(Val, Loc));
+        make_return(make_literal(Val, Loc));
     conv_body(Body) ->
         io:format("Convert body ~p~n", [Body]),
         xxx_make_body.
 
+    make_return(Return) ->
+        {obj, [
+               {"type",     <<"ReturnStatement">>},
+               {"argument", Return}
+              ]
+        }.
+
     make_fail() ->
-        make_expression(make_literal("throw error", ?NOSRCMAPINFO)).
+        make_literal("throw error", ?NOSRCMAPINFO).
 
     make_declarations(List) when is_list(List) ->
         Decs = make_decs(List, []),
@@ -143,14 +150,6 @@
                        ]
                  },
         make_decs(T, [NewAcc | Acc]).
-
-    make_return(Ret) ->
-        {obj,
-         [
-          {"type",     <<"ReturnStatement">>},
-          {"argument", Ret}
-         ]
-        }.
 
     make_block_statement(Block) ->
         {obj,

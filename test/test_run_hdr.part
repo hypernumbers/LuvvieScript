@@ -1,0 +1,22 @@
+%% this is the included header file for the tests that check Erlang/LuvviScript
+%% compatibility - the same fn run as Erlang or LuvvieScript returns the same value
+-compile(export_all).
+-include("ct.hrl").
+
+-define(TESTFN(Test, Name, Module, Fn, Result),
+        Test(_Config) ->
+               File = atom_to_list(Name) ++ "/js/"
+                   ++ atom_to_list(Module) ++ ".js",
+               io:format("File is ~p~n", [File]),
+               {ok, JS} = file:read_file("../../test/" ++ File),
+               JS2 = binary_to_list(JS) ++ "print(" ++ atom_to_list(Fn) ++ "());",
+               io:format("JS2 is ~p~n", [JS2]),
+               Cmd = "rhino -e \"" ++ JS2 ++ "\"",
+               io:format("Cmd is ~p~n", [Cmd]),
+               Return = string:strip(os:cmd(Cmd), both, $\n),
+               case Return of
+                   Result -> ok;
+                   Got    -> io:format("Expected : ~p~nGot      :~p~n",
+                                       [Result, Got]),
+                             exit(fail)
+               end).

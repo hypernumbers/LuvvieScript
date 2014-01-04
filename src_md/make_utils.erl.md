@@ -35,11 +35,39 @@
         ok = load_beam_files(Modules),
         ok = make_compile_tests(Modules, Dir),
         Tests = [get_tests(X) || X <- Modules],
-        io:format("Gonnae write the tests then son?~n"),
-        io:format("Tests is ~p~n", [Tests]),
         Results = [get_results(X) || X <- Tests],
-        io:format("Results is ~p~n", [Results]),
-        ok.
+        TestName = filename:basename(Dir),
+        Name = TestName ++ "_run_SUITE",
+        {TestFns, TestCode} = make_tests(Results, TestName, [], []),
+        All = "all() ->\n[\n" ++ string:join(TestFns, ",\n") ++ "\n].\n",
+        Suite = lists:flatten([
+                               "%%% this file is GENERATED - DO NOT EDIT\n",
+                               "-module(" ++ Name ++ ").\n",
+                               "\n",
+                               "-include(\"test_run_hdr.part\").\n",
+                               "\n",
+                               All,
+                               "\n",
+                               TestCode
+                              ]),
+        ok = file:write_file("test/" ++ Name ++ ".erl", Suite).
+
+    make_tests([], _TestName, Acc1, Acc2) ->
+        {lists:reverse(Acc1), lists:flatten(lists:reverse(Acc2))};
+    make_tests([{Mod, Tests} | T], TestName, Acc1, Acc2) ->
+        NewAcc1 = ["'" ++ atom_to_list(Mod) ++ "_" ++ atom_to_list(X) ++ "_test'"
+                   || {X, _} <- Tests],
+        NewAcc2 = [make_t2(TestName, Mod, Test) || Test <- Tests],
+        make_tests(T, TestName, lists:merge(NewAcc1, Acc1), [NewAcc2 | Acc2]).
+
+    make_t2(TestName, Mod, {Fun, Result}) ->
+        "?TESTFN("
+            ++ "'" ++ atom_to_list(Mod) ++ "_" ++ atom_to_list(Fun) ++ "_test', "
+            ++ TestName ++ ", "
+            ++ "'" ++ atom_to_list(Mod) ++ "', "
+            ++ "'" ++ atom_to_list(Fun) ++ "', "
+            ++ to_s(Result)
+            ++ ").\n".
 
     make_compile_tests(Modules, Dir) ->
         Dir2 = filename:basename(Dir),
@@ -145,4 +173,14 @@
             _ ->
                 error
         end.
+
+    to_s(Int) when is_integer(Int)      -> integer_to_list(Int);
+    to_s(Flt) when is_float(Flt)        ->
+        %% definetaly a better way to test this (3.0 = "3")
+        case erlang:trunc(Flt) == Flt andalso Flt < 99999 of
+            true  -> integer_to_list(erlang:trunc(Flt));
+            false -> string:to_upper(mochinum:digits(Flt))
+        end;
+    to_s(Str) when is_list(Str)         -> "\"" ++ Str ++ "\"" ;
+    to_s(A) when is_atom(A)             -> atom_to_list(A).
 ```
