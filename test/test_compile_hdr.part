@@ -1,3 +1,5 @@
+%% This is the included header file for the tests that check that the generated
+%% javascript is well formed
 -compile(export_all).
 -include("ct.hrl").
 
