@@ -111,12 +111,14 @@
 
     merge_fn(Name, #c_fun{vars = Vars, body = Body} = Fn, Tokens, Acc) ->
         Line = get_line_var(Fn),
-        {NewVars, NewToks, Context} = get_new_vars(Vars, Tokens),
+        {NewVars, NewToks, _Context} = get_new_vars(Vars, Tokens),
         {{Line, Offset}, NewToks2} = get_details(NewToks, Line, Name),
-        {NewBody, NewToks3} = merge_body(Body, NewToks2, Context),
+        {NewBody, NewToks3} = merge_body(Body, NewToks2, []),
         NewFn = set_col(Offset, Fn#c_fun{vars = NewVars, body = NewBody}),
         {[NewFn | Acc], NewToks3}.
 
+    merge_body([], Tokens, _Context) ->
+        {[], Tokens};
     merge_body(#c_literal{anno = []} = CLit, Tokens, _Context) ->
         {CLit, Tokens};
     merge_body(#c_literal{val = Val} = CLit, Tokens, _Context) ->
@@ -124,6 +126,11 @@
         {{Line, Offset}, NewToks} = get_details(Tokens, Line, Val),
         NewLit = set_col(Offset, CLit),
         {NewLit, NewToks};
+    merge_body(#c_let{vars = Vars, body = Body} = CLet, Tokens, _Context) ->
+        {NewVars, NewToks, NewContext} = get_new_vars(Vars, Tokens),
+        {NewBody, NewToks2} = merge_body(Body, NewToks, NewContext),
+        CLet2 = CLet#c_let{vars = NewVars, body = NewBody},
+        {CLet2, NewToks2};
     merge_body(Body, Tokens, _Context) ->
         io:format("in merge_body Skipping ~p~n", [Body]),
         {Body, Tokens}.
@@ -131,12 +138,14 @@
     get_new_vars([], Tokens) ->
         {[], Tokens, []};
     get_new_vars([H | _T] = List, Tokens) ->
-        Line = get_line_var(H),
-        {Line, Tks} = lists:keyfind(Line, 1, Tokens),
-        Matches = get_matches(Tks, []),
-        NewToks = lists:keydelete(Line, 1, Tokens),
-        {NewVars, Context} = get_new_vars2(List, Matches, [], []),
-        {NewVars, NewToks, Context}.
+        case get_line_var(H) of
+            none -> {List, Tokens, []};
+            Line -> {Line, Tks} = lists:keyfind(Line, 1, Tokens),
+                    Matches = get_matches(Tks, []),
+                    NewToks = lists:keydelete(Line, 1, Tokens),
+                    {NewVars, Context} = get_new_vars2(List, Matches, [], []),
+                    {NewVars, NewToks, Context}
+        end.
 
     get_new_vars2([], _Matches, Context, Acc) ->
         {lists:reverse(Acc), lists:reverse(Context)};
@@ -333,11 +342,14 @@
 
     get_line_var(Rec) when is_tuple(Rec) ->
         Attrs = element(2, Rec),
-        FilterFn = fun(X) when is_integer(X) -> true;
-                      (_X)                   -> false
-                   end,
-        [N] = lists:filter(FilterFn, Attrs),
-        N.
+        case Attrs of
+            [] -> none;
+            A  -> FilterFn = fun(X) when is_integer(X) -> true;
+                                (_X)                   -> false
+                             end,
+                  [N] = lists:filter(FilterFn, A),
+                  N
+        end.
 
     set_col(none,         Rec) when is_tuple(Rec) -> Rec;
     set_col({_N, none},   Rec) when is_tuple(Rec) -> Rec;

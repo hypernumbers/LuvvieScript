@@ -25,6 +25,14 @@
     -define(NOTINITIALISED,   []).
     -define(EMPTYOBJECT,      make_object({obj, []})).
 
+```
+```
+ Use this definition where you know the source map is humped
+ but will need to be fixed up later
+%```erlang
+```erlang
+    -define(TODO_SOURCEMAP, []).
+
     conv(#c_module{} = Module) ->
         #c_module{anno    = Annotations,
                   name    = Name,
@@ -36,7 +44,7 @@
         %%          [Name, Annotations, Exports, Attrs, Defs]),
         Context = #js_context{name    = Name,
                               exports = Exports},
-        Decl = make_declarations([{<<"exports">>, ?EMPTYOBJECT}]),
+        Decl = make_declarations([{"exports", ?EMPTYOBJECT}]),
         Body = [conv(X, Context) || X <- Defs],
         Exp  = conv_exports(Exports),
 
@@ -57,7 +65,7 @@
         FnName  = make_identifier(atom_to_list(Fn), ?NOSRCMAPINFO),
         Call    = make_call_expr(FnName, ?NOSRCMAPINFO),
         Call2   = make_return(Call),
-        Cases   = [{X, Call2, ?WITHBREAK} || X <- Arities] ++
+        Cases   = [{X, [Call2], ?WITHBREAK} || X <- Arities] ++
             [{null, make_return(?PATTERNMATCHFAIL), ?WITHOUTBREAK}],
         Switch  = make_switch(<<"_args">>, Cases),
         Left    = make_identifier("_args", ?NOSRCMAPINFO),
@@ -83,16 +91,17 @@
 
     conv_fn([], Acc) ->
         %% add the default case
-        Cases   = lists:reverse([{null, make_return(?PATTERNMATCHFAIL),
+        Cases   = lists:reverse([{null, [make_return(?PATTERNMATCHFAIL)],
                                   ?WITHOUTBREAK} | Acc]),
+        io:format("Cases is ~p~n", [Cases]),
         Switch  = make_switch(<<"_args">>, Cases),
         Left    = make_identifier("_args", ?NOSRCMAPINFO),
         Right   = make_method("arguments", "length"),
         ArgsDef = make_operator("=", Left, Right, ?NOSRCMAPINFO),
         _Body   = make_block_statement([
-                                     ArgsDef,
-                                     Switch
-                                    ]);
+                                        ArgsDef,
+                                        Switch
+                                       ]);
     conv_fn([#c_fun{vars = Vs} = CFn | T], Acc) ->
         NewAcc = {length(Vs), conv_fn2(CFn), ?WITHBREAK},
         conv_fn(T, [NewAcc | Acc]).
@@ -102,10 +111,65 @@
 
     conv_body(#c_literal{val = Val} = Body) ->
         Loc = get_loc(Body),
-        make_return(make_literal(Val, Loc));
+        [make_return(make_literal(Val, Loc))];
+    conv_body(#c_let{} = CLet) ->
+        conv_let(CLet, [], []);
     conv_body(Body) ->
         io:format("Convert body ~p~n", [Body]),
-        xxx_make_body.
+        [{obj, [
+                {"type", <<"not implemented conv_body (2)">>}
+               ]
+         }].
+
+    conv_let([], Acc1, [H | Acc2]) ->
+        Return = make_return(H),
+        lists:reverse(Acc1) ++ lists:reverse([H | Acc2]);
+    conv_let(#c_let{vars = [Var], arg = Arg, body = B} = Body, Acc1, Acc2) ->
+        Loc = get_loc(Body),
+        Nm = atom_to_list(Var#c_var.name),
+        Decl = make_declarations([{Nm, null}]),
+        Left = make_identifier(Nm, get_loc(Var)),
+        Right = conv_args(Arg),
+        Expr = make_operator("=", Left, Right, Loc),
+        case B of
+            #c_let{}  -> conv_let(B, [Decl | Acc1], [Expr | Acc2]);
+            #c_call{} -> NewExpr = conv_args(B),
+                         conv_let([], [Decl | Acc1], [NewExpr, Expr | Acc2])
+        end.
+
+    conv_args(#c_apply{} = CApply) ->
+        make_apply(CApply);
+    conv_args(#c_call{module = Mod, name = Fn, args = Args} = CCall) ->
+        Loc = get_loc(CCall),
+        case Mod#c_literal.val of
+            erlang -> make_expression(make_erlang_call(Fn#c_literal.val, Args, Loc));
+            Module -> {obj, [
+                             {"type", list_to_binary("not implemented conv_args "
+                                                     ++ atom_to_list(Module))}
+                            ]
+                      }
+        end.
+
+    make_erlang_call('*', [A, B], Loc) ->
+        {A1, B1} = rectify(A, B),
+        make_operator("*", A1, B1, Loc);
+    make_erlang_call('/', [A, B], Loc) ->
+        {A1, B1} = rectify(A, B),
+        make_operator("/", A1, B1, Loc);
+    make_erlang_call('+', [A, B], Loc) ->
+        {A1, B1} = rectify(A, B),
+        make_operator("+", A1, B1, Loc);
+    make_erlang_call('-', [A, B], Loc) ->
+        {A1, B1} = rectify(A, B),
+        make_operator("-", A1, B1, Loc).
+
+    rectify(#c_var{name = A}, #c_var{name = B}) ->
+        {make_identifier(atom_to_list(A), ?TODO_SOURCEMAP),
+         make_identifier(atom_to_list(B), ?TODO_SOURCEMAP)}.
+
+    make_apply(#c_apply{op = Op, args = Args}) ->
+        {Name, _} = Op#c_var.name,
+        make_call_expr(make_identifier(atom_to_list(Name), ?TODO_SOURCEMAP), Args).
 
     make_return(Return) ->
         {obj, [
@@ -123,26 +187,26 @@
                {"type",         <<"VariableDeclaration">>},
                {"declarations", Decs},
                {"kind",         <<"var">>}
-               ]
+              ]
         }.
 
     make_object({obj, List}) when is_list(List) ->
         {obj, [
                {"type",       <<"ObjectExpression">>},
                {"properties", List}
-               ]
+              ]
         }.
 
     make_decs([], Acc) ->
         lists:reverse(Acc);
-    make_decs([{Name, []} | T], Acc) when is_binary(Name) ->
+    make_decs([{Name, []} | T], Acc) ->
         make_decs([{Name, null} | T], Acc);
-    make_decs([{Name, Init} | T], Acc) when is_binary(Name) ->
+    make_decs([{Name, Init} | T], Acc) ->
         NewAcc = {obj, [
                         {"type", <<"VariableDeclarator">>},
                         {"id",   {obj, [
                                         {"type", <<"Identifier">>},
-                                        {"name", Name}
+                                        {"name", list_to_binary(Name)}
                                        ]
                                  }
                         },
@@ -192,15 +256,16 @@
     make_cases([], Acc) ->
         lists:reverse(Acc);
     make_cases([{Val, Body, HasBreak} | T], Acc) ->
+        io:format("Body is ~p~n", [Body]),
         Body2 = case HasBreak of
-                    true -> [Body] ++ [
-                                       {obj, [
-                                              {"type", <<"BreakStatement">>},
-                                              {"label", null}
-                                             ]
-                                       }
-                                      ];
-                    false -> [Body]
+                    true -> Body ++ [
+                                     {obj, [
+                                            {"type", <<"BreakStatement">>},
+                                            {"label", null}
+                                           ]
+                                     }
+                                    ];
+                    false -> Body
                 end,
         NewAcc = {obj, [
                         {"type",       <<"SwitchCase">>},
@@ -243,16 +308,16 @@
                {"object",   {obj, [
                                    {"type", <<"Identifier">>},
                                    {"name", enc_v(Obj)}
-                                ]
-                          }
+                                  ]
+                            }
                },
                {"property", {obj,
                              [
                               {"type", <<"Identifier">>},
                               {"name", enc_v(Fn)}
-                              ]
-                             }
-                }
+                             ]
+                            }
+               }
               ]
         }.
 
@@ -266,22 +331,25 @@
         }.
 
     make_operator("=", Left, Right, Loc) ->
-        make_op2("=", <<"AssignmentExpression">>, Left, Right, Loc).
+        make_expression(make_op2("=", <<"AssignmentExpression">>, Left, Right, Loc));
+    make_operator("*", Left, Right, Loc) ->
+        make_op2("*", <<"BinaryExpression">>, Left, Right, Loc);
+    make_operator("/", Left, Right, Loc) ->
+        make_op2("/", <<"BinaryExpression">>, Left, Right, Loc);
+    make_operator("+", Left, Right, Loc) ->
+        make_op2("+", <<"BinaryExpression">>, Left, Right, Loc);
+    make_operator("-", Left, Right, Loc) ->
+        make_op2("-", <<"BinaryExpression">>, Left, Right, Loc).
 
     make_op2(Operator, OpDesc, Left, Right, Loc) ->
-        {obj, [
-               {"type",       <<"ExpressionStatement">>},
-               {"expression", {obj,
-                               lists:flatten([
-                                              {"type",     OpDesc},
-                                              {"operator", enc_v(Operator)},
-                                              {"left",     Left},
-                                              {"right",    Right},
-                                              Loc
-                                             ])
-                              }
-               }
-              ]
+        {obj,
+         lists:flatten([
+                        {"type",     OpDesc},
+                        {"operator", enc_v(Operator)},
+                        {"left",     Left},
+                        {"right",    Right},
+                        Loc
+                       ])
         }.
 
     make_expression(Expr) ->
@@ -358,10 +426,6 @@
             Loc   -> [Loc]
         end.
 
-    loc(Line, Start, End) ->
-        {"loc", [{"start", [{"line", Line}, {"column", Start}]},
-                 {"end",   [{"line", Line}, {"column", End}]}]}.
-
     raw_enc_v(Str)  when is_list(Str)    -> enc_v("\"" ++ Str ++ "\"");
     raw_enc_v(Atom) when is_atom(Atom)   -> Atom;  %% Todo fix up
     raw_enc_v(Int)  when is_integer(Int) -> list_to_binary(integer_to_list(Int));
@@ -409,43 +473,43 @@
 
     switch_test_() ->
         Exp = {obj,[{"type",<<"SwitchStatement">>},
-          {"discriminant",{obj,[{"type",<<"Identifier">>},{"name",<<"args">>}]}},
-          {"cases",
-           [{obj,[{"type",<<"SwitchCase">>},
-                  {"test",
-                   {obj,[{"type",<<"Literal">>},{"value",0},{"raw",<<"0">>}]}},
-                  {"consequent",
-                   [{obj,[{"type",<<"ExpressionStatement">>},
-                          {"expression",
-                           {obj,[{"type",<<"Literal">>},
-                                 {"value",<<"jerk">>},
-                                 {"raw",<<"\"jerk\"">>}]}}]},
-                    {obj,[{"type",<<"BreakStatement">>},{"label",null}]}]}]},
-            {obj,[{"type",<<"SwitchCase">>},
-                  {"test",
-                   {obj,[{"type",<<"Literal">>},{"value",1},{"raw",<<"1">>}]}},
-                  {"consequent",
-                   [{obj,[{"type",<<"ExpressionStatement">>},
-                          {"expression",
-                           {obj,[{"type",<<"Literal">>},
-                                 {"value",<<"erk">>},
-                                 {"raw",<<"\"erk\"">>}]}}]},
-                    {obj,[{"type",<<"BreakStatement">>},{"label",null}]}]}]},
-            {obj,[{"type",<<"SwitchCase">>},
-                  {"test",null},
-                  {"consequent",
-                   [{obj,[{"type",<<"ExpressionStatement">>},
-                          {"expression",
-                           {obj,[{"type",<<"Literal">>},
-                                 {"value",<<"shirk">>},
-                                 {"raw",<<"\"shirk\"">>}]}}]}]}]}]}]},
+                    {"discriminant",{obj,[{"type",<<"Identifier">>},{"name",<<"args">>}]}},
+                    {"cases",
+                     [{obj,[{"type",<<"SwitchCase">>},
+                            {"test",
+                             {obj,[{"type",<<"Literal">>},{"value",0},{"raw",<<"0">>}]}},
+                            {"consequent",
+                             [{obj,[{"type",<<"ExpressionStatement">>},
+                                    {"expression",
+                                     {obj,[{"type",<<"Literal">>},
+                                           {"value",<<"jerk">>},
+                                           {"raw",<<"\"jerk\"">>}]}}]},
+                              {obj,[{"type",<<"BreakStatement">>},{"label",null}]}]}]},
+                      {obj,[{"type",<<"SwitchCase">>},
+                            {"test",
+                             {obj,[{"type",<<"Literal">>},{"value",1},{"raw",<<"1">>}]}},
+                            {"consequent",
+                             [{obj,[{"type",<<"ExpressionStatement">>},
+                                    {"expression",
+                                     {obj,[{"type",<<"Literal">>},
+                                           {"value",<<"erk">>},
+                                           {"raw",<<"\"erk\"">>}]}}]},
+                              {obj,[{"type",<<"BreakStatement">>},{"label",null}]}]}]},
+                      {obj,[{"type",<<"SwitchCase">>},
+                            {"test",null},
+                            {"consequent",
+                             [{obj,[{"type",<<"ExpressionStatement">>},
+                                    {"expression",
+                                     {obj,[{"type",<<"Literal">>},
+                                           {"value",<<"shirk">>},
+                                           {"raw",<<"\"shirk\"">>}]}}]}]}]}]}]},
         J = make_expression(make_literal("jerk",  ?NOSRCMAPINFO)),
         E = make_expression(make_literal("erk",   ?NOSRCMAPINFO)),
         S = make_expression(make_literal("shirk", ?NOSRCMAPINFO)),
-        Got = make_switch(<<"args">>, [{0,    J, ?WITHBREAK},
-                                       {1,    E, ?WITHBREAK},
-                                       {null, S, ?WITHOUTBREAK}]),
-        log_output("Switch", Got, Exp),
+        Got = make_switch(<<"args">>, [{0,    [J], ?WITHBREAK},
+                                       {1,    [E], ?WITHBREAK},
+                                       {null, [S], ?WITHOUTBREAK}]),
+        %% log_output("Switch", Got, Exp),
         ?_assertEqual(Got, Exp).
 
     args_test_() ->
@@ -548,7 +612,7 @@
                      ]}}
                   ]}}
                ]},
-        FnName   = "simplefn",
+        FnName   = make_identifier("simplefn", ?NOSRCMAPINFO),
         Params   = ?EMPTYJSONLIST,
         Defaults = ?EMPTYJSONLIST,
         Literal  = make_literal("banjolette", ?NOSRCMAPINFO),
@@ -556,12 +620,42 @@
         Body     = make_block_statement([Return]),
         FnBody   = make_fn_body(Params, Defaults, Body),
         Got      = make_fn(FnName, FnBody, ?NOSRCMAPINFO),
-        log("Literal", Literal),
-        log("Return",  Return),
-        log("Body",    Body),
-        log("FnBody",  FnBody),
-        log("Got",     Got),
         %% log_output("Fns", Got, Exp),
+        ?_assertEqual(Got, Exp).
+
+    assignment_test_() ->
+        Exp = {obj, [{obj,[{"type",<<"VariableDeclaration">>},
+                  {"declarations",
+                   [{obj,[{"type",<<"VariableDeclarator">>},
+                          {"id",
+                           {obj,[{"type",<<"Identifier">>},{"name",<<"A">>}]}},
+                          {"init",null}]},
+                    {obj,[{"type",<<"VariableDeclarator">>},
+                          {"id",
+                           {obj,[{"type",<<"Identifier">>},{"name",<<"B">>}]}},
+                          {"init",null}]}]},
+                  {"kind",<<"var">>}]},
+            {obj,[{"type",<<"ExpressionStatement">>},
+                  {"expression",
+                   {obj,[{"type",<<"BinaryExpression">>},
+                         {"operator",<<"/">>},
+                         {"left",
+                          {obj,[{"type",<<"Identifier">>},{"name",<<"A">>}]}},
+                         {"right",
+                          {obj,[{"type",<<"Identifier">>},
+                                {"name",<<"B">>}]}}]}}]}]},
+
+        Decls = make_declarations([
+                                   {"A", ?NOTINITIALISED},
+                                   {"B", ?NOTINITIALISED}
+                                  ]),
+        A1 = make_identifier("A", ?NOSRCMAPINFO),
+        B1 = make_identifier("B", ?NOSRCMAPINFO),
+        Expr = make_expression(make_operator("/", A1, B1, ?NOSRCMAPINFO)),
+        log("Decls", Decls),
+        log("Expr", Expr),
+        Got = {obj, [Decls, Expr]},
+        log_output("Assignment", Got, Exp),
         ?_assertEqual(Got, Exp).
 
 ```
