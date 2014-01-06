@@ -11,7 +11,8 @@
     -export([
              generate_switch/0,
              generate_args/0,
-             generate_fn/0
+             generate_fn/0,
+             generate_assignment/0
             ]).
 
     generate_switch() ->
@@ -152,6 +153,53 @@
                     }
                 }
             }",
+        {ok, Json, []} = rfc4627:decode(J),
+        JStr = io_lib:format("~p", [Json]),
+        make_utils:plain_log(JStr, "/tmp/make_tests.txt").
+
+    generate_assignment() ->
+        J = "{
+        \"type\": \"Program\",
+        \"body\": [
+            {
+                \"type\": \"VariableDeclaration\",
+                \"declarations\": [
+                    {
+                        \"type\": \"VariableDeclarator\",
+                        \"id\": {
+                            \"type\": \"Identifier\",
+                            \"name\": \"A\"
+                        },
+                        \"init\": null
+                    },
+                    {
+                        \"type\": \"VariableDeclarator\",
+                        \"id\": {
+                            \"type\": \"Identifier\",
+                            \"name\": \"B\"
+                        },
+                        \"init\": null
+                    }
+                ],
+                \"kind\": \"var\"
+            },
+            {
+                \"type\": \"ExpressionStatement\",
+                \"expression\": {
+                    \"type\": \"BinaryExpression\",
+                    \"operator\": \"/\",
+                    \"left\": {
+                        \"type\": \"Identifier\",
+                        \"name\": \"A\"
+                    },
+                    \"right\": {
+                        \"type\": \"Identifier\",
+                        \"name\": \"B\"
+                    }
+                }
+            }
+        ]
+    }",
         {ok, Json, []} = rfc4627:decode(J),
         JStr = io_lib:format("~p", [Json]),
         make_utils:plain_log(JStr, "/tmp/make_tests.txt").
