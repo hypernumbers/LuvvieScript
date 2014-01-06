@@ -14,8 +14,10 @@
     dbg({obj, List}, Acc) ->
         dbg(List, Acc);
     dbg(List, Acc) when is_list(List) ->
+        %% io:format("List is ~p~n", [List]),
         {Keys, _Vals} = lists:unzip(List),
-        io:format("Keys are ~p~n-in ~p~n", [Keys, lists:reverse(Acc)]),
+        %% io:format("Keys are ~p~n-in ~p~n", [Keys, lists:reverse(Acc)]),
+        io:format("Keys are ~p~n", [Keys]),
         NewA = case lists:keyfind("type", 1, List) of
                    {"type", Type} ->
                        [Type | Acc];
@@ -28,7 +30,7 @@
                         ({"expression", false}, FnAcc) ->
                              FnAcc;
                         ({"expression", X}, FnAcc) ->
-                             dbg(X, ["expresion" | FnAcc]);
+                             dbg(X, ["expression" | FnAcc]);
                         %% ({"callee", X}, FnAcc) ->
                         %%     dbg(X, ["callee" | FnAcc]);
                         %% ({"name", X}, FnAcc) ->
