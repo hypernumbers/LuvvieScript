@@ -12,7 +12,8 @@
              generate_switch/0,
              generate_args/0,
              generate_fn/0,
-             generate_assignment/0
+             generate_return/0,
+             generate_declarations/0
             ]).
 
     generate_switch() ->
@@ -85,7 +86,7 @@
             }",
         {ok, Json, []} = rfc4627:decode(J),
         JStr = io_lib:format("~p", [Json]),
-        make_utils:plain_log(JStr, "/tmp/make_tests.txt").
+        make_utils:plain_log(JStr, "/tmp/test_utils.txt").
 
     generate_args() ->
         J = "{
@@ -117,7 +118,7 @@
          }",
         {ok, Json, []} = rfc4627:decode(J),
         JStr = io_lib:format("~p", [Json]),
-        make_utils:plain_log(JStr, "/tmp/make_tests.txt").
+        make_utils:plain_log(JStr, "/tmp/test_utils.txt").
 
     generate_fn() ->
         J = "{
@@ -155,12 +156,19 @@
             }",
         {ok, Json, []} = rfc4627:decode(J),
         JStr = io_lib:format("~p", [Json]),
-        make_utils:plain_log(JStr, "/tmp/make_tests.txt").
+        make_utils:plain_log(JStr, "/tmp/test_utils.txt").
 
-    generate_assignment() ->
-        J = "{
-        \"type\": \"Program\",
-        \"body\": [
+```
+ var fn = function () {
+ 	var a;
+ 	var b;
+ 	a = 1;
+ 	b = 2;
+ 	return a/b;
+ 	}
+```erlang
+    generate_return() ->
+        J = "[
             {
                 \"type\": \"VariableDeclaration\",
                 \"declarations\": [
@@ -168,15 +176,115 @@
                         \"type\": \"VariableDeclarator\",
                         \"id\": {
                             \"type\": \"Identifier\",
-                            \"name\": \"A\"
+                            \"name\": \"fn\"
                         },
-                        \"init\": null
-                    },
+                        \"init\": {
+                            \"type\": \"FunctionExpression\",
+                            \"id\": null,
+                            \"params\": [],
+                            \"defaults\": [],
+                            \"body\": {
+                                \"type\": \"BlockStatement\",
+                                \"body\": [
+                                    {
+                                        \"type\": \"VariableDeclaration\",
+                                        \"declarations\": [
+                                            {
+                                                \"type\": \"VariableDeclarator\",
+                                                \"id\": {
+                                                    \"type\": \"Identifier\",
+                                                    \"name\": \"a\"
+                                                },
+                                                \"init\": null
+                                            }
+                                        ],
+                                        \"kind\": \"var\"
+                                    },
+                                    {
+                                        \"type\": \"VariableDeclaration\",
+                                        \"declarations\": [
+                                            {
+                                                \"type\": \"VariableDeclarator\",
+                                                \"id\": {
+                                                    \"type\": \"Identifier\",
+                                                    \"name\": \"b\"
+                                                },
+                                                \"init\": null
+                                            }
+                                        ],
+                                        \"kind\": \"var\"
+                                    },
+                                    {
+                                        \"type\": \"ExpressionStatement\",
+                                        \"expression\": {
+                                            \"type\": \"AssignmentExpression\",
+                                            \"operator\": \"=\",
+                                            \"left\": {
+                                                \"type\": \"Identifier\",
+                                                \"name\": \"a\"
+                                            },
+                                            \"right\": {
+                                                \"type\": \"Literal\",
+                                                \"value\": 1,
+                                                \"raw\": \"1\"
+                                            }
+                                        }
+                                    },
+                                    {
+                                        \"type\": \"ExpressionStatement\",
+                                        \"expression\": {
+                                            \"type\": \"AssignmentExpression\",
+                                            \"operator\": \"=\",
+                                            \"left\": {
+                                                \"type\": \"Identifier\",
+                                                \"name\": \"b\"
+                                            },
+                                            \"right\": {
+                                                \"type\": \"Literal\",
+                                                \"value\": 2,
+                                                \"raw\": \"2\"
+                                            }
+                                        }
+                                    },
+                                    {
+                                        \"type\": \"ReturnStatement\",
+                                        \"argument\": {
+                                            \"type\": \"BinaryExpression\",
+                                            \"operator\": \"/\",
+                                            \"left\": {
+                                                \"type\": \"Identifier\",
+                                                \"name\": \"a\"
+                                            },
+                                            \"right\": {
+                                                \"type\": \"Identifier\",
+                                                \"name\": \"b\"
+                                            }
+                                        }
+                                    }
+                                ]
+                            },
+                            \"rest\": null,
+                            \"generator\": false,
+                            \"expression\": false
+                        }
+                    }
+                ],
+                \"kind\": \"var\"
+            }
+        ]",
+        {ok, Json, []} = rfc4627:decode(J),
+        JStr = io_lib:format("~p", [Json]),
+        make_utils:plain_log(JStr, "/tmp/test_utils.txt").
+
+    generate_declarations() ->
+        J = "[{
+                \"type\": \"VariableDeclaration\",
+                \"declarations\": [
                     {
                         \"type\": \"VariableDeclarator\",
                         \"id\": {
                             \"type\": \"Identifier\",
-                            \"name\": \"B\"
+                            \"name\": \"a\"
                         },
                         \"init\": null
                     }
@@ -184,23 +292,21 @@
                 \"kind\": \"var\"
             },
             {
-                \"type\": \"ExpressionStatement\",
-                \"expression\": {
-                    \"type\": \"BinaryExpression\",
-                    \"operator\": \"/\",
-                    \"left\": {
-                        \"type\": \"Identifier\",
-                        \"name\": \"A\"
-                    },
-                    \"right\": {
-                        \"type\": \"Identifier\",
-                        \"name\": \"B\"
+                \"type\": \"VariableDeclaration\",
+                \"declarations\": [
+                    {
+                        \"type\": \"VariableDeclarator\",
+                        \"id\": {
+                            \"type\": \"Identifier\",
+                            \"name\": \"b\"
+                        },
+                        \"init\": null
                     }
-                }
-            }
-        ]
-    }",
+                ],
+                \"kind\": \"var\"
+            }]",
         {ok, Json, []} = rfc4627:decode(J),
         JStr = io_lib:format("~p", [Json]),
-        make_utils:plain_log(JStr, "/tmp/make_tests.txt").
+        make_utils:plain_log(JStr, "/tmp/test_utils.txt").
+
 ```
