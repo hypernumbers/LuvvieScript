@@ -81,13 +81,19 @@
         ok.
 
     make_javascript(File) ->
-        DirIn    = filename:dirname(File) ++ "/../debug/",
-        DirOut   = filename:dirname(File) ++ "/../js/",
-        FileRoot = filename:rootname(filename:basename(File)),
-        FileIn   = DirIn  ++ FileRoot ++ ".json",
-        FileOut  = DirOut ++ FileRoot ++ ".js",
-        CodeGen  = "/usr/local/bin/escodegen-cl2",
-        case os:cmd("cat " ++ FileIn ++ " | " ++ CodeGen ++ " > " ++ FileOut) of
+        DirIn     = filename:dirname(File) ++ "/../debug/",
+        DirOut    = filename:dirname(File) ++ "/../js/",
+        FileRoot  = filename:rootname(filename:basename(File)),
+        FileIn    = DirIn  ++ FileRoot ++ ".json",
+        FileOut   = DirOut ++ FileRoot ++ ".js",
+        SourceMap = DirOut ++ FileRoot ++ ".js.map",
+        CodeGen   = "/usr/local/bin/escodegen-cl2",
+        Cmd = CodeGen
+            ++ " --js_ast "      ++ FileIn
+            ++ " --js_output "   ++ FileOut
+            ++ " --source_file " ++ File
+            ++ " --source_map "  ++ SourceMap,
+        case os:cmd(Cmd) of
             []  -> ok; % fine and doody
             Msg -> io:format("Invalid JSON AST for ~p~n" ++ Msg, [FileOut])
         end,
