@@ -93,7 +93,6 @@
         %% add the default case
         Cases   = lists:reverse([{null, [make_return(?PATTERNMATCHFAIL)],
                                   ?WITHOUTBREAK} | Acc]),
-        io:format("Cases is ~p~n", [Cases]),
         Switch  = make_switch(<<"_args">>, Cases),
         Left    = make_identifier("_args", ?NOSRCMAPINFO),
         Right   = make_method("arguments", "length"),
@@ -123,7 +122,7 @@
 
     conv_let([], Acc1, [H | Acc2]) ->
         Return = make_return(H),
-        lists:reverse(Acc1) ++ lists:reverse([H | Acc2]);
+        lists:reverse(Acc1) ++ lists:reverse([Return | Acc2]);
     conv_let(#c_let{vars = [Var], arg = Arg, body = B} = Body, Acc1, Acc2) ->
         Loc = get_loc(Body),
         Nm = atom_to_list(Var#c_var.name),
@@ -142,7 +141,7 @@
     conv_args(#c_call{module = Mod, name = Fn, args = Args} = CCall) ->
         Loc = get_loc(CCall),
         case Mod#c_literal.val of
-            erlang -> make_expression(make_erlang_call(Fn#c_literal.val, Args, Loc));
+            erlang -> make_erlang_call(Fn#c_literal.val, Args, Loc);
             Module -> {obj, [
                              {"type", list_to_binary("not implemented conv_args "
                                                      ++ atom_to_list(Module))}
@@ -190,13 +189,6 @@
               ]
         }.
 
-    make_object({obj, List}) when is_list(List) ->
-        {obj, [
-               {"type",       <<"ObjectExpression">>},
-               {"properties", List}
-              ]
-        }.
-
     make_decs([], Acc) ->
         lists:reverse(Acc);
     make_decs([{Name, []} | T], Acc) ->
@@ -214,6 +206,13 @@
                        ]
                  },
         make_decs(T, [NewAcc | Acc]).
+
+    make_object({obj, List}) when is_list(List) ->
+        {obj, [
+               {"type",       <<"ObjectExpression">>},
+               {"properties", List}
+              ]
+        }.
 
     make_block_statement(Block) ->
         {obj,
@@ -256,7 +255,6 @@
     make_cases([], Acc) ->
         lists:reverse(Acc);
     make_cases([{Val, Body, HasBreak} | T], Acc) ->
-        io:format("Body is ~p~n", [Body]),
         Body2 = case HasBreak of
                     true -> Body ++ [
                                      {obj, [
@@ -623,39 +621,128 @@
         %% log_output("Fns", Got, Exp),
         ?_assertEqual(Got, Exp).
 
-    assignment_test_() ->
-        Exp = {obj, [{obj,[{"type",<<"VariableDeclaration">>},
-                  {"declarations",
-                   [{obj,[{"type",<<"VariableDeclarator">>},
-                          {"id",
-                           {obj,[{"type",<<"Identifier">>},{"name",<<"A">>}]}},
-                          {"init",null}]},
-                    {obj,[{"type",<<"VariableDeclarator">>},
-                          {"id",
-                           {obj,[{"type",<<"Identifier">>},{"name",<<"B">>}]}},
-                          {"init",null}]}]},
-                  {"kind",<<"var">>}]},
-            {obj,[{"type",<<"ExpressionStatement">>},
-                  {"expression",
-                   {obj,[{"type",<<"BinaryExpression">>},
-                         {"operator",<<"/">>},
-                         {"left",
-                          {obj,[{"type",<<"Identifier">>},{"name",<<"A">>}]}},
-                         {"right",
-                          {obj,[{"type",<<"Identifier">>},
-                                {"name",<<"B">>}]}}]}}]}]},
+    return_test_() ->
+```
+ var fn = function () {
+ 	var a;
+ 	var b;
+ 	a = 1;
+ 	b = 2;
+ 	return a/b;
+ 	}
+```erlang
+        Exp = {obj,
+     [{"type",<<"ExpressionStatement">>},
+      {"expression",
+       {obj,
+        [{"type",<<"AssignmentExpression">>},
+         {"operator",<<"=">>},
+         {"left",{obj,[{"type",<<"Identifier">>},{"name",<<"fn">>}]}},
+         {"right",
+          {obj,
+           [{"type",<<"FunctionExpression">>},
+            {"id",null},
+            {"params",[]},
+            {"defaults",[]},
+            {"body",
+             {obj,
+              [{"type",<<"BlockStatement">>},
+               {"body",
+                [{obj,
+                  [{"type",<<"VariableDeclaration">>},
+                   {"declarations",
+                    [{obj,
+                      [{"type",<<"VariableDeclarator">>},
+                       {"id",{obj,[{"type",<<"Identifier">>},{"name",<<"a">>}]}},
+                       {"init",null}]}]},
+                   {"kind",<<"var">>}]},
+                 {obj,
+                  [{"type",<<"VariableDeclaration">>},
+                   {"declarations",
+                    [{obj,
+                      [{"type",<<"VariableDeclarator">>},
+                       {"id",{obj,[{"type",<<"Identifier">>},{"name",<<"b">>}]}},
+                       {"init",null}]}]},
+                   {"kind",<<"var">>}]},
+                 {obj,
+                  [{"type",<<"ExpressionStatement">>},
+                   {"expression",
+                    {obj,
+                     [{"type",<<"AssignmentExpression">>},
+                      {"operator",<<"=">>},
+                      {"left",{obj,[{"type",<<"Identifier">>},{"name",<<"a">>}]}},
+                      {"right",
+                       {obj,
+                        [{"type",<<"Literal">>},
+                         {"value",1},
+                         {"raw",<<"1">>}]}}]}}]},
+                 {obj,
+                  [{"type",<<"ExpressionStatement">>},
+                   {"expression",
+                    {obj,
+                     [{"type",<<"AssignmentExpression">>},
+                      {"operator",<<"=">>},
+                      {"left",{obj,[{"type",<<"Identifier">>},{"name",<<"b">>}]}},
+                      {"right",
+                       {obj,
+                        [{"type",<<"Literal">>},
+                         {"value",2},
+                         {"raw",<<"2">>}]}}]}}]},
+                 {obj,
+                  [{"type",<<"ReturnStatement">>},
+                   {"argument",
+                    {obj,
+                     [{"type",<<"BinaryExpression">>},
+                      {"operator",<<"/">>},
+                      {"left",{obj,[{"type",<<"Identifier">>},{"name",<<"a">>}]}},
+                      {"right",
+                       {obj,
+                        [{"type",<<"Identifier">>},{"name",<<"b">>}]}}]}}]}]}]}},
+            {"rest",null},
+            {"generator",false},
+            {"expression",false}]}}]}}]},
 
-        Decls = make_declarations([
-                                   {"A", ?NOTINITIALISED},
-                                   {"B", ?NOTINITIALISED}
-                                  ]),
-        A1 = make_identifier("A", ?NOSRCMAPINFO),
-        B1 = make_identifier("B", ?NOSRCMAPINFO),
-        Expr = make_expression(make_operator("/", A1, B1, ?NOSRCMAPINFO)),
-        log("Decls", Decls),
-        log("Expr", Expr),
-        Got = {obj, [Decls, Expr]},
-        log_output("Assignment", Got, Exp),
+        FnName   = make_identifier("fn", ?NOSRCMAPINFO),
+        Params   = ?EMPTYJSONLIST,
+        Defaults = ?EMPTYJSONLIST,
+        Decls = lists:flatten([
+                               make_declarations([{"a", ?NOTINITIALISED}]),
+                               make_declarations([{"b", ?NOTINITIALISED}])
+                              ]),
+        A1 = make_identifier("a", ?NOSRCMAPINFO),
+        B1 = make_identifier("b", ?NOSRCMAPINFO),
+        Ass1 = make_operator("=", A1, make_literal(1, ?NOSRCMAPINFO), ?NOSRCMAPINFO),
+        Ass2 = make_operator("=", B1, make_literal(2, ?NOSRCMAPINFO), ?NOSRCMAPINFO),
+        Expr    = make_operator("/", A1, B1, ?NOSRCMAPINFO),
+        Return  = make_return(Expr),
+        Body    = make_block_statement(lists:flatten([Decls, Ass1, Ass2, Return])),
+        FnBody  = make_fn_body(Params, Defaults, Body),
+        Got     = make_fn(FnName, FnBody, ?NOSRCMAPINFO),
+        %% log_output("Fns", Got, Exp),
+        ?_assertEqual(Got, Exp).
+
+    declarations_test_() ->
+        Exp = [{obj,[{"type",<<"VariableDeclaration">>},
+                     {"declarations",
+                      [{obj,[{"type",<<"VariableDeclarator">>},
+                             {"id",{obj,[{"type",<<"Identifier">>},{"name",<<"a">>}]}},
+                             {"init",null}]}]},
+                     {"kind",<<"var">>}]},
+               {obj,[{"type",<<"VariableDeclaration">>},
+                     {"declarations",
+                      [{obj,[{"type",<<"VariableDeclarator">>},
+                             {"id",{obj,[{"type",<<"Identifier">>},{"name",<<"b">>}]}},
+                             {"init",null}]}]},
+                     {"kind",<<"var">>}]}],
+        Got = [
+               make_declarations([
+                                  {"a", ?NOTINITIALISED}
+                                 ]),
+               make_declarations([
+                                  {"b", ?NOTINITIALISED}
+                                 ])
+              ],
+        %% log_output("Declarations", Got, Exp),
         ?_assertEqual(Got, Exp).
 
 ```
