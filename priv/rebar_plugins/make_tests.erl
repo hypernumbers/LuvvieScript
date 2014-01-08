@@ -12,7 +12,7 @@
         ]).
 
 -define(JSDIR,     "js/").
--define(TESTDIRS,  ["test/passing", "test/not_passing"]).
+-define(TESTDIRS,  ["test/passing"]).
 
 make_tests(_Config, AppFile) ->
     App = filename:basename(AppFile),
