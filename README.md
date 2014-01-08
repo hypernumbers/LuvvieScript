@@ -1,3 +1,6 @@
+**New** our website is <a href="http://luvv.ie">luvv.ie</a>!
+
+  <div class="jumbotron">
     <h1>Hey NodeJs Developers</h1>
     <p>Erlang was a big influence on the design of NodeJs. LuvvieScript is a small but seriously interesting early stage project that will challenge your preconceptions about you should structure large Javascript applcations and give you deep insight into why NodeJs is structured like it is. Jump right in and see how we are <a href="http://luvv.ie/toolchain.html">transpiling Erlang to Javascript</a>.</p>
     <p>Its open source so <a href="http://luvvi.ie/getting-started.html">join us</a>. Don't worry you don't need to be an Erlang guru.
