@@ -63,7 +63,7 @@
         %% now transform the Erlang core AST file by merging in the column
         %% information from the collected tokens so that we can write the
         %% Javascript AST with the right info to get a Source Map
-        Body3 = merge:add_line_info(Syntax2#c_module.defs, Tokens2, []),
+        Body3 = merge:add_line_info(Syntax2#c_module.defs, Tokens2),
         Syntax3 = fix_exports(Syntax2#c_module{defs = Body3}),
         ok = maybe_write(Environment, File, Syntax3, ".ast3", term),
         %% finally we can start coverting Erlang (core) to Javascript
