@@ -30,7 +30,6 @@
         Decl = to_jast:make_declarations([{"exports", ?EMPTYOBJECT}]),
         Body = [conv(X, Context) || X <- Defs],
         Exp  = conv_exports(Exports),
-
         to_jast:make_programme([Decl] ++ Exp ++ Body).
 
     conv({#c_var{name = {FnName, _}} = CVar, FnList}, Context) ->
@@ -96,8 +95,10 @@
         [to_jast:make_return(to_jast:make_literal(Val, Loc))];
     conv_body(#c_let{} = CLet) ->
         conv_let(CLet, [], []);
+    conv_body(#c_apply{} = CApply) ->
+        [conv_args(CApply)];
     conv_body(Body) ->
-        io:format("Convert body ~p~n", [Body]),
+        io:format("Need to convert body ~p~n", [Body]),
         [{obj, [
                 {"type", <<"not implemented conv_body (2)">>}
                ]
