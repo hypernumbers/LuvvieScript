@@ -61,9 +61,35 @@
         {NewBody, NewToks2} = merge_body(Body, NewToks, NewContext),
         CLet2 = CLet#c_let{vars = NewVars, body = NewBody},
         {CLet2, NewToks2};
+    merge_body(#c_apply{op = Op, args = Args} = CApp, Tokens, Context)
+      when is_record(Op, c_var) ->
+        {NewOp, NewToks} = merge_var(Op, Tokens, Context),
+        {NewArgs, NewToks2} = merge_args(Args, NewToks, Context),
+        {CApp#c_apply{op = NewOp, args = NewArgs}, NewToks2};
     merge_body(Body, Tokens, _Context) ->
         io:format("in merge_body Skipping ~p~n", [Body]),
         {Body, Tokens}.
+
+    merge_var(#c_var{name = {Name, _}} = Var, Tokens, _Context) ->
+        case get_line_var(Var) of
+            none -> {Var, Tokens};
+            Line -> {Line, Tks} = lists:keyfind(Line, 1, Tokens),
+                    Match = lists:keyfind(Name, 1, Tks),
+                    {_, {_, Offset}, _} = Match,
+                    NewVar = set_col(Offset, Var),
+                    NewTks = lists:keydelete(Name, 1, Tks),
+                    NewTokens = lists:keystore(Line, 1, Tokens, {Line, NewTks}),
+                    {NewVar, NewTokens}
+        end.
+
+    merge_args(Args, Tokens, Context) ->
+        merge_a2(Args, Tokens, Context, []).
+
+    merge_a2([], Tokens, _Context, Acc) ->
+        {lists:reverse(Acc), Tokens};
+    merge_a2([H | T], Tokens, Context, Acc) ->
+        {NewAcc, NewToks} = merge_var(H, Tokens, Context),
+        merge_a2(T, NewToks, Context, [NewAcc | Acc]).
 
     get_new_vars([], Tokens) ->
         {[], Tokens, []};
