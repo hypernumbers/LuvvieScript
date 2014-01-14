@@ -1,4 +1,23 @@
 body {
-    background-image:url("Elizabeth-Taylor.jpg");
-    background-size : 100%;
+    background-image : url("Elizabeth-Taylor.jpg");
+    background-size  : 100%;
+    font-family      : Verdana;
+}
+
+h2, h3 {
+    color       : #FFF;
+}
+
+button {
+    padding          : 20px;
+    color            : #000;
+    background-color : #FFF
+    font-size        : 36px;
+    font-weight      : bold;
+}
+
+#response {
+    padding-top : 20px;
+    font-size   : 10px;
+    color       : #FFF;
 }
