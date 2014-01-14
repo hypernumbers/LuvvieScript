@@ -20,11 +20,11 @@ markup(Config, AppFile) ->
             ErlFiles = get_files(SrcDirs, erl),
             HrlFiles = get_files(SrcDirs, hrl),
             [ok = markup_to_literate(X, erl) || X <- ErlFiles],
-            [ok = markup_to_literate(X, hrl) || X <- HrlFiles];
+            [ok = markup_to_literate(X, hrl) || X <- HrlFiles],
+            ok;
         _ ->
             ok
-    end,
-    ok.
+    end.
 
 get_files(SrcDirs, Type) ->
     WildCards = case Type of
