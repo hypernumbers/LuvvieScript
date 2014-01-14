@@ -14,12 +14,12 @@ compile_literate(Config, AppFile) ->
     App = filename:basename(AppFile),
     %% once you have run this rebar plugin once the AppFile changes :(
     case App of
-        "luvviescript.app"     -> ok = compile_l();
-        "luvviescript.app.src" -> ok = compile_l();
+        "luvviescript.app"     -> ok = compile_l(Config);
+        "luvviescript.app.src" -> ok = compile_l(Config);
         _                      -> ok
     end.
 
-compile_l() ->
+compile_l(Config) ->
     ErlOpts = rebar_config:get(Config, erl_opts, []),
     SrcDirs = get_src_dirs(ErlOpts),
     ok = clear_down(SrcDirs),
