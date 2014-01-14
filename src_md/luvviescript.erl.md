@@ -94,7 +94,6 @@
             ++ " --js_output "   ++ FileOut
             ++ " --source_file " ++ SourceFile
             ++ " --source_map "  ++ SourceMap,
-        io:format("Cmd is ~p~n", [Cmd]),
         case os:cmd(Cmd) of
             []  -> ok; % fine and doody
             Msg -> io:format("Invalid JSON AST for ~p~n" ++ Msg, [FileOut])
