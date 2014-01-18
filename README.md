@@ -1,7 +1,7 @@
 **New** our website is <a href="http://luvv.ie">luvv.ie</a>!
 
 <div class="jumbotron">
-  <h1>Hey, JS/Node Developers!</h1>
+  <h1>Hey JS/Node Developers!</h1>
   <p>Did you know that Erlang was a big influence on the design of Node.js?
   </p>
   <p>LuvvieScript is a compile-to-JavaScript dialect of Erlang that runs in the browser. It is a small but interesting early-stage project that will challenge preconceptions about how one should structure large JavaScript applcations. Exploring LuvvieScript will provide <a href="http://luvv.ie/mission.html">deep insight</a> into different ways to think about Javascript apps.
