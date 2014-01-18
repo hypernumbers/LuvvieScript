@@ -35,3 +35,6 @@
 <li><a href="http://luvv.ie/install.html">Installing LuvvieScript</a></li>
 <li><a href="http://luvv.ie/getting-started.html">Getting started with LuvvieScript development</a></li>
 </ul>
+<div class='well'>
+     <h4 class='text-info'>If you have read this far you should follow <a href='http://twitter.com/luvviescript'>@LuvvieScript</a> or <a href='http://twitter.com/gordonguthrie'>@gordonguthrie</a> on Twitter.</h4>
+  </div>
