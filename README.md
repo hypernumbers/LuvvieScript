@@ -30,8 +30,8 @@
 
 <h1>In Brief</h1>
 <ul>
-<li><a href="http://luvv.ie/mission.html">What is LuvvieScript and why would you want to write Erlang in the browser</a></li>
-<li><a href="http://luvv.ie/toolchain.html">How is Erlang transpiled to Javascript</a></li>
+<li><a href="http://luvv.ie/mission.html">What is LuvvieScript and why would you want to write Erlang in the browser?</a></li>
+<li><a href="http://luvv.ie/toolchain.html">How is Erlang transpiled to Javascript?</a></li>
 <li><a href="http://luvv.ie/install.html">Installing LuvvieScript</a></li>
 <li><a href="http://luvv.ie/getting-started.html">Getting started with LuvvieScript development</a></li>
 </ul>
