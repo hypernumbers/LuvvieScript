@@ -4,7 +4,7 @@
   <h1>Hey, JS/Node Developers!</h1>
   <p>Did you know that Erlang was a big influence on the design of Node.js?
   </p>
-  <p>LuvvieScript is a compile-to-JavaScript dialect of Erlang that runs in the browser. It is a small but interesting early-stage project that will challenge preconceptions about how one should structure large JavaScript applcations. Exploring LuvvieScript will provide <a href="mission.html">deep insight</a> into different ways to think about Javascript apps.
+  <p>LuvvieScript is a compile-to-JavaScript dialect of Erlang that runs in the browser. It is a small but interesting early-stage project that will challenge preconceptions about how one should structure large JavaScript applcations. Exploring LuvvieScript will provide <a href="http://luvv.ie/mission.html">deep insight</a> into different ways to think about Javascript apps.
   </p>
   <p>It's an open source project, so feel free to
   <a href="http://luvvi.ie/getting-started.html">join us</a>!
@@ -30,7 +30,7 @@
 
 <h1>In Brief</h1>
 <ul>
-<li><a href="mission.html">What is LuvvieScript and why would you want to write Erlang in the browser</a></li>
+<li><a href="http://luvv.ie/mission.html">What is LuvvieScript and why would you want to write Erlang in the browser</a></li>
 <li><a href="http://luvv.ie/toolchain.html">How is Erlang transpiled to Javascript</a></li>
 <li><a href="http://luvvi.ie/install.html">Installing LuvvieScript</a></li>
 <li><a href="http://luvvi.ie/getting-started.html">Getting started with LuvvieScript development</a></li>
