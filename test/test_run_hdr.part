@@ -17,8 +17,8 @@
                Result2 = to_s(Result),
                case Return of
                    Result2 -> ok;
-                   Got    -> io:format("Expected : ~p~nGot      :~p~n",
-                                       [Result, Got]),
+                   Got    -> io:format("Expected : ~p~nGot      : ~p~n",
+                                       [Result2, Got]),
                              exit(fail)
                end).
 
@@ -29,5 +29,5 @@ to_s(Flt) when is_float(Flt)        ->
         true  -> integer_to_list(erlang:trunc(Flt));
         false -> string:to_upper(mochinum:digits(Flt))
     end;
-to_s(Str) when is_list(Str)         -> "\"" ++ Str ++ "\"" ;
+to_s(Str) when is_list(Str)         -> Str;
 to_s(A) when is_atom(A)             -> atom_to_list(A).
