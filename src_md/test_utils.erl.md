@@ -13,7 +13,8 @@
              generate_args/0,
              generate_fn/0,
              generate_return/0,
-             generate_declarations/0
+             generate_declarations/0,
+             generate_fncall/0
             ]).
 
     generate_switch() ->
@@ -309,4 +310,50 @@
         JStr = io_lib:format("~p", [Json]),
         make_utils:plain_log(JStr, "/tmp/test_utils.txt").
 
+    generate_fncall() ->
+        %% somefn = function() {
+        %%  	return anotherfn();
+        %% }
+        J = "[
+            {
+                \"type\": \"ExpressionStatement\",
+                \"expression\": {
+                    \"type\": \"AssignmentExpression\",
+                    \"operator\": \"=\",
+                    \"left\": {
+                        \"type\": \"Identifier\",
+                        \"name\": \"somefn\"
+                    },
+                    \"right\": {
+                        \"type\": \"FunctionExpression\",
+                        \"id\": null,
+                        \"params\": [],
+                        \"defaults\": [],
+                        \"body\": {
+                            \"type\": \"BlockStatement\",
+                            \"body\": [
+                                {
+                                    \"type\": \"ReturnStatement\",
+                                    \"argument\": {
+                                        \"type\": \"CallExpression\",
+                                        \"callee\": {
+                                            \"type\": \"Identifier\",
+                                            \"name\": \"anotherfn\"
+                                        },
+                                        \"arguments\": []
+                                    }
+                                }
+                            ]
+                        },
+                        \"rest\": null,
+                        \"generator\": false,
+                        \"expression\": false
+                    }
+                }
+            }
+        ]",
+
+        {ok, Json, []} = rfc4627:decode(J),
+        JStr = io_lib:format("~p", [Json]),
+        make_utils:plain_log(JStr, "/tmp/test_utils.txt").
 ```
