@@ -7,27 +7,27 @@
    @end
    Created : 17 Aug 2013 by gordon@vixo.com
 ```erlang
-    -module(to_jast).
+    -module(to_js_ast).
 
     -export([
              make_erlang_call/3,
-             make_apply/1,
-             make_return/1,
+             make_apply/2,
+             make_return/2,
              make_fail/0,
-             make_declarations/1,
-             make_object/1,
-             make_block_statement/1,
+             make_declarations/2,
+             make_object/2,
+             make_block_statement/2,
              make_fn/3,
-             make_fn_body/3,
-             make_switch/2,
+             make_fn_body/4,
+             make_switch/3,
              make_cases/2,
-             make_programme/1,
+             make_programme/2,
              make_identifier/2,
              make_literal/2,
-             make_method/2,
-             make_call_expr/2,
+             make_method/3,
+             make_call_expr/3,
              make_operator/4,
-             make_expression/1
+             make_expression/2
             ]).
 
     -include_lib("core_parse.hrl").
@@ -40,8 +40,6 @@
  but will need to be fixed up later
 %```erlang
 ```erlang
-    -define(TODO_SOURCEMAP, []).
-
     make_erlang_call('*', [A, B], Loc) ->
         {A1, B1} = rectify(A, B),
         make_operator("*", A1, B1, Loc);
@@ -56,30 +54,34 @@
         make_operator("-", A1, B1, Loc).
 
     rectify(#c_var{name = A}, #c_var{name = B}) ->
-        {make_identifier(atom_to_list(A), ?TODO_SOURCEMAP),
-         make_identifier(atom_to_list(B), ?TODO_SOURCEMAP)}.
+        io:format("I rectify A is ~p B is ~p~n",[A, B]),
+        {make_identifier(atom_to_list(A), ?NOSRCMAP),
+         make_identifier(atom_to_list(B), ?NOSRCMAP)}.
 
-    make_apply(#c_apply{op = Op, args = Args}) ->
+    make_apply(#c_apply{op = Op, args = Args}, Loc) ->
         {Name, _} = Op#c_var.name,
-        make_call_expr(make_identifier(atom_to_list(Name), ?TODO_SOURCEMAP), Args).
+        make_call_expr(make_identifier(atom_to_list(Name), Loc), Args, ?NOSRCMAP).
 
-    make_return(Return) ->
-        {obj, [
-               {"type",     <<"ReturnStatement">>},
-               {"argument", Return}
-              ]
+    make_return(Return, Loc) ->
+        {obj, lists:flatten([
+                             {"type",     <<"ReturnStatement">>},
+                             {"argument", Return},
+                             Loc
+                            ])
         }.
 
     make_fail() ->
-        make_literal("throw error", ?NOSRCMAPINFO).
+        make_literal("throw error", ?NOSRCMAP).
 
-    make_declarations(List) when is_list(List) ->
+    make_declarations(List, Loc) when is_list(List) ->
+        io:format("List is ~p~n", [List]),
         Decs = make_decs(List, []),
-        {obj, [
-               {"type",         <<"VariableDeclaration">>},
-               {"declarations", Decs},
-               {"kind",         <<"var">>}
-              ]
+        {obj, lists:flatten([
+                             {"type",         <<"VariableDeclaration">>},
+                             {"declarations", Decs},
+                             {"kind",         <<"var">>},
+                             Loc
+                            ])
         }.
 
     make_decs([], Acc) ->
@@ -91,7 +93,7 @@
                         {"type", <<"VariableDeclarator">>},
                         {"id",   {obj, [
                                         {"type", <<"Identifier">>},
-                                        {"name", list_to_binary(Name)}
+                                        {"name", enc_v(Name)}
                                        ]
                                  }
                         },
@@ -100,49 +102,54 @@
                  },
         make_decs(T, [NewAcc | Acc]).
 
-    make_object({obj, List}) when is_list(List) ->
-        {obj, [
-               {"type",       <<"ObjectExpression">>},
-               {"properties", List}
-              ]
+    make_object({obj, List}, Loc) when is_list(List) ->
+        {obj, lists:flatten([
+                             {"type",       <<"ObjectExpression">>},
+                             {"properties", List},
+                             Loc
+                            ])
         }.
 
-    make_block_statement(Block) ->
+    make_block_statement(Block, Loc) when is_list(Block) ->
         {obj,
-         [
-          {"type", <<"BlockStatement">>},
-          {"body", Block}
-         ]
+         lists:flatten([
+                        {"type", <<"BlockStatement">>},
+                        {"body", Block},
+                        Loc
+                       ])
         }.
 
     make_fn(Left, Body, Loc) ->
+        io:format("In make_fn for ~p~n", [Left]),
         _Expr = make_operator("=", Left, Body, Loc).
 
-    make_fn_body(Params, Defaults, Body) ->
-        {obj, [
-               {"type",       <<"FunctionExpression">>},
-               {"id",         null},
-               {"params",     Params},
-               {"defaults",   Defaults},
-               {"body",       Body},
-               {"rest",       null},
-               {"generator",  false},
-               {"expression", false}
-              ]
+    make_fn_body(Params, Defaults, Body, Loc) ->
+        {obj, lists:flatten([
+                             {"type",       <<"FunctionExpression">>},
+                             {"id",         null},
+                             {"params",     Params},
+                             {"defaults",   Defaults},
+                             {"body",       Body},
+                             {"rest",       null},
+                             {"generator",  false},
+                             {"expression", false},
+                             Loc
+                            ])
         }.
 
-    make_switch(Variable, Cases) ->
-        {obj, [
-               {"type",         <<"SwitchStatement">>},
-               {"discriminant", {obj, [
-                                       {"type", <<"Identifier">>},
+    make_switch(Variable, Cases, Loc) ->
+        {obj, lists:flatten([
+                             {"type",         <<"SwitchStatement">>},
+                             {"discriminant", {obj, [
+                                                     {"type", <<"Identifier">>},
                                        {"name", Variable}
-                                      ]
-                                }
+                                                    ]
+                                              }
 
-               },
-               {"cases", make_cases(Cases, [])}
-              ]
+                             },
+                             {"cases", make_cases(Cases, [])},
+                             Loc
+                            ])
         }.
 
     make_cases([], Acc) ->
@@ -166,11 +173,12 @@
                  },
         make_cases(T, [NewAcc | Acc]).
 
-    make_programme(Body) when is_list(Body) ->
-        {obj, [
-               {"type", <<"Program">>},
-               {"body", Body}
-              ]
+    make_programme(Body, Loc) when is_list(Body) ->
+        {obj, lists:flatten([
+                             {"type", <<"Program">>},
+                             {"body", Body},
+                             Loc
+                            ])
         }.
 
     make_identifier(Val, Loc) ->
@@ -192,37 +200,40 @@
                             ])
         }.
 
-    make_method(Obj, Fn) ->
-        {obj, [
-               {"type",     <<"MemberExpression">>},
-               {"computed", false},
-               {"object",   {obj, [
-                                   {"type", <<"Identifier">>},
-                                   {"name", enc_v(Obj)}
-                                  ]
-                            }
-               },
-               {"property", {obj,
-                             [
-                              {"type", <<"Identifier">>},
-                              {"name", enc_v(Fn)}
-                             ]
-                            }
-               }
-              ]
+    make_method(Obj, Fn, Loc) ->
+        {obj, lists:flatten([
+                             {"type",     <<"MemberExpression">>},
+                             {"computed", false},
+                             {"object",   {obj, [
+                                                 {"type", <<"Identifier">>},
+                                                 {"name", enc_v(Obj)}
+                                                ]
+                                          }
+                             },
+                             {"property", {obj,
+                                           [
+                                            {"type", <<"Identifier">>},
+                                            {"name", enc_v(Fn)}
+                                           ]
+                                          }
+                             },
+                             Loc
+                            ])
         }.
 
-    make_call_expr(Callee, Args) ->
+    make_call_expr(Callee, Args, Loc) ->
         {obj,
-         [
-          {"type",      <<"CallExpression">>},
-          {"callee",    Callee},
-          {"arguments", enc_v(Args)}
-         ]
+         lists:flatten([
+                        {"type",      <<"CallExpression">>},
+                        {"callee",    Callee},
+                        {"arguments", enc_v(Args)},
+                        Loc
+                       ])
         }.
 
     make_operator("=", Left, Right, Loc) ->
-        make_expression(make_op2("=", <<"AssignmentExpression">>, Left, Right, Loc));
+        Op = make_op2("=", <<"AssignmentExpression">>, Left, Right, Loc),
+        make_expression(Op, ?NOSRCMAP);
     make_operator("*", Left, Right, Loc) ->
         make_op2("*", <<"BinaryExpression">>, Left, Right, Loc);
     make_operator("/", Left, Right, Loc) ->
@@ -243,11 +254,12 @@
                        ])
         }.
 
-    make_expression(Expr) ->
-        {obj, [
-               {"type",       <<"ExpressionStatement">>},
-               {"expression", Expr}
-              ]
+    make_expression(Expr, Loc) ->
+        {obj, lists:flatten([
+                             {"type",       <<"ExpressionStatement">>},
+                             {"expression", Expr},
+                             Loc
+                            ])
         }.
 
     raw_enc_v(Str)  when is_list(Str)    -> enc_v("\"" ++ Str ++ "\"");
@@ -283,11 +295,18 @@
     -include_lib("eunit/include/eunit.hrl").
 
     log_output(Strap, Got, Expected) ->
+        code:add_patha("../deps/rfc4627_jsonrpc/ebin"),
         GotMsg = io_lib:format(Strap ++ "~n~p~n", [Got]),
         ExpMsg = io_lib:format(Strap ++ "~n~p~n", [Expected]),
         filelib:ensure_dir("/tmp/jast/junk.log"),
+        GotJson = rfc4627:encode(Got),
+        ExpJson = rfc4627:encode(Expected),
+        GotJsonMsg = io_lib:format(Strap ++ " Json~n~s~n", [GotJson]),
+        ExpJsonMsg = io_lib:format(Strap ++ " Json~n~s~n", [ExpJson]),
         make_utils:plain_log(GotMsg, "/tmp/jast/got.log"),
         make_utils:plain_log(ExpMsg, "/tmp/jast/exp.log"),
+        make_utils:plain_log(GotJsonMsg, "/tmp/jast/got.log"),
+        make_utils:plain_log(ExpJsonMsg, "/tmp/jast/exp.log"),
         ok.
 
     log(Prefix, Term) ->
@@ -327,12 +346,12 @@
                                      {obj,[{"type",<<"Literal">>},
                                            {"value",<<"shirk">>},
                                            {"raw",<<"\"shirk\"">>}]}}]}]}]}]}]},
-        J = make_expression(make_literal("jerk",  ?NOSRCMAPINFO)),
-        E = make_expression(make_literal("erk",   ?NOSRCMAPINFO)),
-        S = make_expression(make_literal("shirk", ?NOSRCMAPINFO)),
+        J = make_expression(make_literal("jerk",  ?NOSRCMAP), ?NOSRCMAP),
+        E = make_expression(make_literal("erk",   ?NOSRCMAP), ?NOSRCMAP),
+        S = make_expression(make_literal("shirk", ?NOSRCMAP), ?NOSRCMAP),
         Got = make_switch(<<"args">>, [{0,    [J], ?WITHBREAK},
                                        {1,    [E], ?WITHBREAK},
-                                       {null, [S], ?WITHOUTBREAK}]),
+                                       {null, [S], ?NOBREAK}], ?NOSRCMAP),
         %% log_output("Switch", Got, Exp),
         ?_assertEqual(Got, Exp).
 
@@ -383,10 +402,10 @@
                     }
                    ]
               },
-        Left   = make_identifier("_args", ?NOSRCMAPINFO),
-        Method = make_method("arguments", "length"),
-        Right  = make_call_expr(Method, ?NOSRCMAPINFO),
-        Got    = make_operator("=", Left, Right, ?NOSRCMAPINFO),
+        Left   = make_identifier("_args", ?NOSRCMAP),
+        Method = make_method("arguments", "length", ?NOSRCMAP),
+        Right  = make_call_expr(Method, [], ?NOSRCMAP),
+        Got    = make_operator("=", Left, Right, ?NOSRCMAP),
         %% log_output("Args", Got, Exp),
         ?_assertEqual(Got, Exp).
 
@@ -436,14 +455,14 @@
                      ]}}
                   ]}}
                ]},
-        FnName   = make_identifier("simplefn", ?NOSRCMAPINFO),
+        FnName   = make_identifier("simplefn", ?NOSRCMAP),
         Params   = ?EMPTYJSONLIST,
         Defaults = ?EMPTYJSONLIST,
-        Literal  = make_literal("banjolette", ?NOSRCMAPINFO),
-        Return   = make_return(Literal),
-        Body     = make_block_statement([Return]),
-        FnBody   = make_fn_body(Params, Defaults, Body),
-        Got      = make_fn(FnName, FnBody, ?NOSRCMAPINFO),
+        Literal  = make_literal("banjolette", ?NOSRCMAP),
+        Return   = make_return(Literal, ?NOSRCMAP),
+        Body     = make_block_statement([Return], ?NOSRCMAP),
+        FnBody   = make_fn_body(Params, Defaults, Body, ?NOSRCMAP),
+        Got      = make_fn(FnName, FnBody, ?NOSRCMAP),
         %% log_output("Fns", Got, Exp),
         ?_assertEqual(Got, Exp).
 
@@ -528,22 +547,23 @@
             {"generator",false},
             {"expression",false}]}}]}}]},
 
-        FnName   = make_identifier("fn", ?NOSRCMAPINFO),
+        FnName   = make_identifier("fn", ?NOSRCMAP),
         Params   = ?EMPTYJSONLIST,
         Defaults = ?EMPTYJSONLIST,
         Decls = lists:flatten([
-                               make_declarations([{"a", ?NOTINITIALISED}]),
-                               make_declarations([{"b", ?NOTINITIALISED}])
+                               make_declarations([{"a", ?NOTINITIALISED}], ?NOSRCMAP),
+                               make_declarations([{"b", ?NOTINITIALISED}], ?NOSRCMAP)
                               ]),
-        A1 = make_identifier("a", ?NOSRCMAPINFO),
-        B1 = make_identifier("b", ?NOSRCMAPINFO),
-        Ass1 = make_operator("=", A1, make_literal(1, ?NOSRCMAPINFO), ?NOSRCMAPINFO),
-        Ass2 = make_operator("=", B1, make_literal(2, ?NOSRCMAPINFO), ?NOSRCMAPINFO),
-        Expr    = make_operator("/", A1, B1, ?NOSRCMAPINFO),
-        Return  = make_return(Expr),
-        Body    = make_block_statement(lists:flatten([Decls, Ass1, Ass2, Return])),
-        FnBody  = make_fn_body(Params, Defaults, Body),
-        Got     = make_fn(FnName, FnBody, ?NOSRCMAPINFO),
+        A1 = make_identifier("a", ?NOSRCMAP),
+        B1 = make_identifier("b", ?NOSRCMAP),
+        Ass1 = make_operator("=", A1, make_literal(1, ?NOSRCMAP), ?NOSRCMAP),
+        Ass2 = make_operator("=", B1, make_literal(2, ?NOSRCMAP), ?NOSRCMAP),
+        Expr    = make_operator("/", A1, B1, ?NOSRCMAP),
+        Return  = make_return(Expr, ?NOSRCMAP),
+        Body    = make_block_statement(lists:flatten([Decls, Ass1, Ass2, Return]),
+                                       ?NOSRCMAP),
+        FnBody  = make_fn_body(Params, Defaults, Body, ?NOSRCMAP),
+        Got     = make_fn(FnName, FnBody, ?NOSRCMAP),
         %% log_output("Fns", Got, Exp),
         ?_assertEqual(Got, Exp).
 
@@ -563,12 +583,54 @@
         Got = [
                make_declarations([
                                   {"a", ?NOTINITIALISED}
-                                 ]),
+                                 ], ?NOSRCMAP),
                make_declarations([
                                   {"b", ?NOTINITIALISED}
-                                 ])
+                                 ], ?NOSRCMAP)
               ],
         %% log_output("Declarations", Got, Exp),
+        ?_assertEqual(Got, Exp).
+
+    fncall_test_() ->
+        %% somefn = function() {
+        %%	   return anotherfn();
+        %% }
+        Exp = {obj,
+                [{"type",<<"ExpressionStatement">>},
+                 {"expression",
+                  {obj,
+                   [{"type",<<"AssignmentExpression">>},
+                    {"operator",<<"=">>},
+                    {"left",{obj,[{"type",<<"Identifier">>},{"name",<<"somefn">>}]}},
+                    {"right",
+                     {obj,
+                      [{"type",<<"FunctionExpression">>},
+                       {"id",null},
+                       {"params",[]},
+                       {"defaults",[]},
+                       {"body",
+                        {obj,
+                         [{"type",<<"BlockStatement">>},
+                          {"body",
+                           [{obj,
+                             [{"type",<<"ReturnStatement">>},
+                              {"argument",
+                               {obj,
+                                [{"type",<<"CallExpression">>},
+                                 {"callee",
+                                  {obj,
+                                   [{"type",<<"Identifier">>},{"name",<<"anotherfn">>}]}},
+                                 {"arguments",[]}]}}]}]}]}},
+                       {"rest",null},
+                       {"generator",false},
+                       {"expression",false}]}}]}}]},
+        Left   = make_identifier("somefn", ?NOSRCMAP),
+        Right  = make_call_expr(make_identifier("anotherfn", ?NOSRCMAP), [], ?NOSRCMAP),
+        Return = make_return(Right, ?NOSRCMAP),
+        Block  = make_block_statement([Return], ?NOSRCMAP),
+        Body   = make_fn_body([], [], Block, ?NOSRCMAP),
+        Got    = make_fn(Left, Body, ?NOSRCMAP),
+        log_output("Fn Call", Got, Exp),
         ?_assertEqual(Got, Exp).
 
 ```

@@ -1,9 +1,9 @@
 ```erlang
-    -define(NOSRCMAPINFO,     []).
-    -define(PATTERNMATCHFAIL, to_jast:make_fail()).
-    -define(EMPTYOBJECT,      to_jast:make_object({obj, []})).
+    -define(NOSRCMAP,         []).
+    -define(PATTERNMATCHFAIL, to_js_ast:make_fail()).
+    -define(EMPTYOBJECT,      to_js_ast:make_object({obj, []}, [])).
     -define(WITHBREAK,        true).
-    -define(WITHOUTBREAK,     false).
+    -define(NOBREAK,          false).
     -define(EMPTYJSONLIST,    []).
     -define(NOTINITIALISED,   []).
 ```

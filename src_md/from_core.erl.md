@@ -27,44 +27,47 @@
         %%          [Name, Annotations, Exports, Attrs, Defs]),
         Context = #js_context{name    = Name,
                               exports = Exports},
-        Decl = to_jast:make_declarations([{"exports", ?EMPTYOBJECT}]),
-        Body = [conv(X, Context) || X <- Defs],
+        {Decl, Body} = lists:unzip([conv(X, Context) || X <- Defs]),
+        NDecls = length(Decl) + 1,
+        Decl2 = lists:zip([exports | Decl], lists:duplicate(NDecls, ?EMPTYOBJECT)),
+        Decls = to_js_ast:make_declarations(Decl2, ?NOSRCMAP),
         Exp  = conv_exports(Exports),
-        to_jast:make_programme([Decl] ++ Exp ++ Body).
+        to_js_ast:make_programme([Decls] ++ Exp ++ Body, ?NOSRCMAP).
 
     conv({#c_var{name = {FnName, _}} = CVar, FnList}, Context) ->
-        FnBody = conv_fn(FnList, ?NOSRCMAPINFO),
-        Body = to_jast:make_fn_body(?EMPTYJSONLIST, ?EMPTYJSONLIST, FnBody),
+        io:format("In conv for ~p~n", [FnName]),
+        FnBody = conv_fn(FnList, ?NOSRCMAP),
+        Body = to_js_ast:make_fn_body(?EMPTYJSONLIST, ?EMPTYJSONLIST, FnBody, ?NOSRCMAP),
         Loc = get_loc(CVar),
-        Left = to_jast:make_identifier(atom_to_list(FnName), Loc),
-        to_jast:make_fn(Left, Body, Loc).
+        Left = to_js_ast:make_identifier(atom_to_list(FnName), Loc),
+        {FnName, to_js_ast:make_fn(Left, Body, Loc)}.
 
     conv_exports(Exports) ->
         Exps2 = group_exps_of_diff_arity(Exports),
         [conv_exp(X) || X <- Exps2].
 
     conv_exp({Fn, Arities}) ->
-        FnName  = to_jast:make_identifier(atom_to_list(Fn), ?NOSRCMAPINFO),
-        Call    = to_jast:make_call_expr(FnName, ?NOSRCMAPINFO),
-        Call2   = to_jast:make_return(Call),
+        FnName  = to_js_ast:make_identifier(atom_to_list(Fn), ?NOSRCMAP),
+        Call    = to_js_ast:make_call_expr(FnName, [], ?NOSRCMAP),
+        Call2   = to_js_ast:make_return(Call, ?NOSRCMAP),
         Cases   = [{X, [Call2], ?WITHBREAK} || X <- Arities] ++
-            [{null, to_jast:make_return(?PATTERNMATCHFAIL), ?WITHOUTBREAK}],
-        Switch  = to_jast:make_switch(<<"_args">>, Cases),
-        Left    = to_jast:make_identifier("_args", ?NOSRCMAPINFO),
-        Right   = to_jast:make_method("arguments", "length"),
-        ArgsDef = to_jast:make_operator("=", Left, Right, ?NOSRCMAPINFO),
-        Body    = to_jast:make_block_statement([
-                                        ArgsDef,
-                                        Switch
-                                       ]),
-        FnBody  = to_jast:make_fn_body(?EMPTYJSONLIST, ?EMPTYJSONLIST, Body),
-        FnVar   = to_jast:make_method("exports", Fn),
-        _Return = to_jast:make_fn(FnVar, FnBody, ?NOSRCMAPINFO).
+            [{null, to_js_ast:make_return(?PATTERNMATCHFAIL, ?NOSRCMAP), ?NOBREAK}],
+        Switch  = to_js_ast:make_switch(<<"_args">>, Cases, ?NOSRCMAP),
+        Left    = to_js_ast:make_identifier("_args", ?NOSRCMAP),
+        Right   = to_js_ast:make_method("arguments", "length", ?NOSRCMAP),
+        ArgsDef = to_js_ast:make_operator("=", Left, Right, ?NOSRCMAP),
+        Body    = to_js_ast:make_block_statement([
+                                                ArgsDef,
+                                                Switch
+                                               ], ?NOSRCMAP),
+        FnBody  = to_js_ast:make_fn_body(?EMPTYJSONLIST, ?EMPTYJSONLIST, Body, ?NOSRCMAP),
+        FnVar   = to_js_ast:make_method("exports", Fn, ?NOSRCMAP),
+        _Return = to_js_ast:make_fn(FnVar, FnBody, ?NOSRCMAP).
 
     group_exps_of_diff_arity(Exports) ->
         GroupFn = fun(#c_var{name = {Fn, Arity}}, List) ->
                           NewT = case lists:keyfind(Fn, 1, List) of
-                                     false -> {Fn, [Arity]};
+                                     false    -> {Fn, [Arity]};
                                      {Fn, As} -> {Fn, [Arity | As]}
                                  end,
                           lists:keystore(Fn, 1, List, NewT)
@@ -73,16 +76,17 @@
 
     conv_fn([], Acc) ->
         %% add the default case
-        Cases   = lists:reverse([{null, [to_jast:make_return(?PATTERNMATCHFAIL)],
-                                  ?WITHOUTBREAK} | Acc]),
-        Switch  = to_jast:make_switch(<<"_args">>, Cases),
-        Left    = to_jast:make_identifier("_args", ?NOSRCMAPINFO),
-        Right   = to_jast:make_method("arguments", "length"),
-        ArgsDef = to_jast:make_operator("=", Left, Right, ?NOSRCMAPINFO),
-        _Body   = to_jast:make_block_statement([
+        Cases   = lists:reverse([{null, [to_js_ast:make_return(?PATTERNMATCHFAIL,
+                                                             ?NOSRCMAP)],
+                                  ?NOBREAK} | Acc]),
+        Switch  = to_js_ast:make_switch(<<"_args">>, Cases, ?NOSRCMAP),
+        Left    = to_js_ast:make_identifier("_args", ?NOSRCMAP),
+        Right   = to_js_ast:make_method("arguments", "length", ?NOSRCMAP),
+        ArgsDef = to_js_ast:make_operator("=", Left, Right, ?NOSRCMAP),
+        _Body   = to_js_ast:make_block_statement([
                                         ArgsDef,
                                         Switch
-                                       ]);
+                                       ], ?NOSRCMAP);
     conv_fn([#c_fun{vars = Vs} = CFn | T], Acc) ->
         NewAcc = {length(Vs), conv_fn2(CFn), ?WITHBREAK},
         conv_fn(T, [NewAcc | Acc]).
@@ -92,7 +96,7 @@
 
     conv_body(#c_literal{val = Val} = Body) ->
         Loc = get_loc(Body),
-        [to_jast:make_return(to_jast:make_literal(Val, Loc))];
+        [to_js_ast:make_return(to_js_ast:make_literal(Val, Loc), ?NOSRCMAP)];
     conv_body(#c_let{} = CLet) ->
         conv_let(CLet, [], []);
     conv_body(#c_apply{} = CApply) ->
@@ -105,15 +109,15 @@
          }].
 
     conv_let([], Acc1, [H | Acc2]) ->
-        Return = to_jast:make_return(H),
+        Return = to_js_ast:make_return(H, ?NOSRCMAP),
         lists:reverse(Acc1) ++ lists:reverse([Return | Acc2]);
     conv_let(#c_let{vars = [Var], arg = Arg, body = B} = Body, Acc1, Acc2) ->
         Loc = get_loc(Body),
         Nm = atom_to_list(Var#c_var.name),
-        Decl = to_jast:make_declarations([{Nm, null}]),
-        Left = to_jast:make_identifier(Nm, get_loc(Var)),
+        Decl = to_js_ast:make_declarations([{Nm, null}], ?NOSRCMAP),
+        Left = to_js_ast:make_identifier(Nm, get_loc(Var)),
         Right = conv_args(Arg),
-        Expr = to_jast:make_operator("=", Left, Right, Loc),
+        Expr = to_js_ast:make_operator("=", Left, Right, Loc),
         case B of
             #c_let{}  -> conv_let(B, [Decl | Acc1], [Expr | Acc2]);
             #c_call{} -> NewExpr = conv_args(B),
@@ -121,11 +125,11 @@
         end.
 
     conv_args(#c_apply{} = CApply) ->
-        to_jast:make_apply(CApply);
+        to_js_ast:make_apply(CApply, ?NOSRCMAP);
     conv_args(#c_call{module = Mod, name = Fn, args = Args} = CCall) ->
         Loc = get_loc(CCall),
         case Mod#c_literal.val of
-            erlang -> to_jast:make_erlang_call(Fn#c_literal.val, Args, Loc);
+            erlang -> to_js_ast:make_erlang_call(Fn#c_literal.val, Args, Loc);
             Module -> {obj, [
                              {"type", list_to_binary("not implemented conv_args "
                                                      ++ atom_to_list(Module))}

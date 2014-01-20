@@ -67,11 +67,11 @@
         Syntax3 = fix_exports(Syntax2#c_module{defs = Body3}),
         ok = maybe_write(Environment, File, Syntax3, ".ast3", term),
         %% finally we can start coverting Erlang (core) to Javascript
-        Jast = from_core:conv(Syntax3),
-        ok = maybe_write(Environment, File, Jast, ".jast", term),
-        %% ok = debug_json:debug(Jast),
-        Jast2 = io_lib:format("~s", [rfc4627:encode(Jast)]),
-        ok = maybe_write(Environment, File, Jast2, ".jast2", string),
+        Js_Ast = from_core:conv(Syntax3),
+        ok = maybe_write(Environment, File, Js_Ast, ".js_ast", term),
+        %% ok = debug_json:debug(Js_Ast),
+        Js_Ast2 = io_lib:format("~s", [rfc4627:encode(Js_Ast)]),
+        ok = maybe_write(Environment, File, Js_Ast2, ".js_ast2", string),
         %% life is easier for everyone if the json we output is actually
         %% readable so make it so
         ok = pretty_print_json(File),
@@ -103,7 +103,7 @@
     pretty_print_json(File) ->
         Dir      = filename:dirname(File) ++ "/../debug/",
         FileRoot = Dir ++ filename:rootname(filename:basename(File)),
-        FileIn   = FileRoot ++ ".jast2",
+        FileIn   = FileRoot ++ ".js_ast2",
         FileOut  = FileRoot ++ ".json",
         PP       = "priv/json-prettyprinter/prettyjson.py",
         [] = os:cmd("cat " ++ FileIn ++ " | " ++ PP ++ " > " ++ FileOut),
