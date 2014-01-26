@@ -6,10 +6,10 @@
   </p>
   <p>LuvvieScript is a compile-to-JavaScript dialect of Erlang that runs in the browser. It is a small but interesting early-stage project that will challenge preconceptions about how one should structure large JavaScript applcations. Exploring LuvvieScript will provide <a href="http://luvv.ie/mission.html">deep insight</a> into different ways to think about Javascript apps.
   </p>
-  <p>It's an open source project, so feel free to
-  <a href="http://luvv.ie/getting-started.html">join us</a>!
-  Don't worry, you don't need to be an Erlang guru :-) You can jump right in and see how we are
-  <a href="http://luvv.ie/toolchain.html">transpiling Erlang to JavaScript</a>.
+    <p>It's an open source project, so feel free to <a href="http://luvv.ie/install.html">install LuvvieScript</a> join us and
+    <a href="http://luvv.ie/getting-started.html">get started</a>!
+    Don't worry, you don't need to be an Erlang guru :-) You can jump right in and see how we are
+    <a href="http://luvv.ie/toolchain.html">transpiling Erlang to JavaScript</a>.
   </p>
 </div>
 
