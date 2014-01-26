@@ -1,5 +1,7 @@
 **New** our website is <a href="http://luvv.ie">luvv.ie</a>!
 
+**New** Interested in writing your own to-javascript-tranpspiler? Got some <a href='http://luvv.ie/2014/01/21/your-transpiler-to-javascript-toolbox/'>tricks'n'tips</a> for ya in a new blog post!
+
 <div class="jumbotron">
   <h1>Hey JS/Node Developers!</h1>
   <p>Did you know that Erlang was a big influence on the design of Node.js?
