@@ -108,6 +108,10 @@ adjust_output_dirs(CompilerOptions, Dir) ->
     end.
 
 clear_down(SrcDirs) ->
+    %% need to ensure that src/ and include/ directories exist
+    %% because the first time you run this they don't
+    [ok = filelib:ensure_dir(X)                   || X <- SrcDirs],
+    [ok = filelib:ensure_dir(X ++ "/../include/") || X <- SrcDirs],
     WildCards = lists:merge([[
                               X ++ "/../include/*",
                               X ++ "/../src/*"

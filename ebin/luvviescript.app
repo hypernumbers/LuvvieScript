@@ -1,0 +1,9 @@
+{application,luvviescript,
+             [{description,"luvviescript"},
+              {vsn,"1"},
+              {registered,[]},
+              {applications,[kernel,stdlib]},
+              {mod,{luvviescript_app,[]}},
+              {env,[]},
+              {modules,[debug_json,from_core,lcompile,luvviescript,make_utils,
+                        merge,test_utils,to_jast,tokens]}]}.

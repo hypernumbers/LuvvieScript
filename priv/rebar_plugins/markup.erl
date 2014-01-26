@@ -14,17 +14,19 @@
 markup(Config, AppFile) ->
     App = filename:basename(AppFile),
     case App of
-        "luvviescript.app.src" ->
-            ErlOpts = rebar_config:get(Config, erl_opts, []),
-            SrcDirs = get_src_dirs(ErlOpts),
-            ErlFiles = get_files(SrcDirs, erl),
-            HrlFiles = get_files(SrcDirs, hrl),
-            [ok = markup_to_literate(X, erl) || X <- ErlFiles],
-            [ok = markup_to_literate(X, hrl) || X <- HrlFiles],
-            ok;
-        _ ->
-            ok
+        "luvviescript.app.src" -> markup2(Config);
+        "luvviescript.app"     -> markup2(Config);
+        _                      -> ok
     end.
+
+markup2(Config) ->
+    ErlOpts = rebar_config:get(Config, erl_opts, []),
+    SrcDirs = get_src_dirs(ErlOpts),
+    ErlFiles = get_files(SrcDirs, erl),
+    HrlFiles = get_files(SrcDirs, hrl),
+    [ok = markup_to_literate(X, erl) || X <- ErlFiles],
+    [ok = markup_to_literate(X, hrl) || X <- HrlFiles],
+    ok.
 
 get_files(SrcDirs, Type) ->
     WildCards = case Type of
