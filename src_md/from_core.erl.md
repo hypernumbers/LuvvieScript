@@ -35,7 +35,6 @@
         to_js_ast:make_programme([Decls] ++ Exp ++ Body, ?NOSRCMAP).
 
     conv({#c_var{name = {FnName, _}} = CVar, FnList}, Context) ->
-        io:format("In conv for ~p~n", [FnName]),
         FnBody = conv_fn(FnList, ?NOSRCMAP),
         Body = to_js_ast:make_fn_body(?EMPTYJSONLIST, ?EMPTYJSONLIST, FnBody, ?NOSRCMAP),
         Loc = get_loc(CVar),
@@ -100,7 +99,6 @@
     conv_body(#c_let{} = CLet) ->
         conv_let(CLet, [], []);
     conv_body(#c_apply{} = CApply) ->
-        io:format("in conv_body for ~p~n", [CApply]),
         [to_js_ast:make_return(conv_args(CApply), ?NOSRCMAP)];
     conv_body(Body) ->
         io:format("Need to convert body ~p~n", [Body]),
@@ -144,5 +142,4 @@
             false -> [];
             Loc   -> [Loc]
         end.
-```
 ```

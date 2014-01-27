@@ -45,7 +45,6 @@
         NewAcc = {WS, {Line, Indent}, white_space},
         make_entry(T, NewIndent, [NewAcc | Acc]);
 ```
-```
   comments are either whole line (don't care about the length)
   or at the end of a line followed by whitespace (don't care about the length).
 ```erlang

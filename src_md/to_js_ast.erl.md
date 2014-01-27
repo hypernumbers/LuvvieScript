@@ -35,7 +35,6 @@
     -include("macros.hrl").
 
 ```
-```
  Use this definition where you know the source map is humped
  but will need to be fixed up later
 %```erlang
@@ -118,7 +117,6 @@
         }.
 
     make_fn(Left, Body, Loc) ->
-        io:format("In make_fn for ~p~n", [Left]),
         _Expr = make_operator("=", Left, Body, Loc).
 
     make_fn_body(Params, Defaults, Body, Loc) ->
@@ -136,7 +134,6 @@
         }.
 
     make_switch(Variable, Cases, Loc) ->
-        io:format("in make_switch ~p~n", [Cases]),
         {obj, lists:flatten([
                              {"type",         <<"SwitchStatement">>},
                              {"discriminant", {obj, [
@@ -280,14 +277,12 @@
     enc_v(Tuple) when is_tuple(Tuple) -> Tuple.
 
 ```
-```
  ```
 
  Unit Tests
 
 ```erlang
 
-```
 ```
 -ifdef(TEST).
 ```erlang
@@ -632,6 +627,5 @@
         log_output("Fn Call", Got, Exp),
         ?_assertEqual(Got, Exp).
 
-```
 ```
 -endif.

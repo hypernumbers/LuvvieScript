@@ -13,7 +13,6 @@
             ]).
 
 ```
-```
   include the core erlang syntax records that we are going to act on
   this file is in /usr/local/lib/erlang/lib/compiler-N.N.N/src
   or the equivalent. That dir needs to be set in the rebar compiler
@@ -26,7 +25,6 @@
 
     merge([], _Tokens, Acc) ->
         lists:reverse(Acc);
-```
 ```
   drop the module_info fns
 ```erlang
@@ -66,6 +64,11 @@
         {NewOp, NewToks} = merge_var(Op, Tokens, Context),
         {NewArgs, NewToks2} = merge_args(Args, NewToks, Context),
         {CApp#c_apply{op = NewOp, args = NewArgs}, NewToks2};
+    merge_body(#c_call{name = Name, args = Args} = CCall, Tokens, Context) ->
+        io:format("skipping ~p~n", [CCall]),
+        io:format("Name is ~p~nArgs is ~p~n", [Name, Args]),
+        dump_tokens("merge_body", CCall, Tokens),
+        {CCall, Tokens};
     merge_body(Body, Tokens, _Context) ->
         io:format("in merge_body Skipping ~p~n", [Body]),
         {Body, Tokens}.
@@ -132,8 +135,6 @@
          end.
 
 ```
-```
-  ```
   Core Erlang uses 'made up' variable names in its function definitions
   We need to match these variable names to the ones used in the source
   code so that we can build a source map
@@ -200,4 +201,20 @@
               },
         NewAttrs = [Loc | Attrs],
         setelement(2, Rec, NewAttrs).
+
+```
+ when you are trying to write merge functionality you spend a lot of time
+ squinting at some Core Erlang code and going "which bits am I to put
+ location data to. ``dump_tokens/3`` is a little debug fn to drop into
+ the code that that point
+```erlang
+    dump_tokens(String, Rec, Tokens) ->
+        case get_line_var(Rec) of
+            none -> io:format(String ++ ": no line variable~n");
+            Line -> {Line, Tks} = lists:keyfind(Line, 1, Tokens),
+                    io:format(String ++ ": Tokens on line ~p~n~p~n", [Line, Tks])
+        end.
+
+
+
 ```

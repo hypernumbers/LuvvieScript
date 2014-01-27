@@ -14,7 +14,6 @@
 
     -include("luvviescript.hrl").
 ```
-```
   include the core erlang syntax records that we are going to act on
   this file is in /usr/local/lib/erlang/lib/compiler-N.N.N/src
   or the equivalent. That dir needs to be set in the rebar compiler
@@ -135,5 +134,4 @@
         NewExps = lists:filter(FilterFn, Exps),
         CMod#c_module{exports = NewExps}.
 
-```
 ```
