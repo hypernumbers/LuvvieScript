@@ -1,10 +1,10 @@
-   @author    Gordon Guthrie
-   @copyright (C) 2014, Gordon Guthrie
-   @doc       This module prepares the (slightly amended)
-              core Erlang AST for conversion tothe javascript AST
+    @author    Gordon Guthrie
+    @copyright (C) 2014, Gordon Guthrie
+    @doc       This module prepares the (slightly amended)
+               core Erlang AST for conversion tothe javascript AST
 
-   @end
-   Created : 10th January 2014 by gordon@vixo.com
+    @end
+    Created : 10th January 2014 by gordon@vixo.com
 ```erlang
     -module(from_core).
 
@@ -100,7 +100,8 @@
     conv_body(#c_let{} = CLet) ->
         conv_let(CLet, [], []);
     conv_body(#c_apply{} = CApply) ->
-        [conv_args(CApply)];
+        io:format("in conv_body for ~p~n", [CApply]),
+        [to_js_ast:make_return(conv_args(CApply), ?NOSRCMAP)];
     conv_body(Body) ->
         io:format("Need to convert body ~p~n", [Body]),
         [{obj, [
@@ -143,4 +144,5 @@
             false -> [];
             Loc   -> [Loc]
         end.
+```
 ```

@@ -54,7 +54,6 @@
         make_operator("-", A1, B1, Loc).
 
     rectify(#c_var{name = A}, #c_var{name = B}) ->
-        io:format("I rectify A is ~p B is ~p~n",[A, B]),
         {make_identifier(atom_to_list(A), ?NOSRCMAP),
          make_identifier(atom_to_list(B), ?NOSRCMAP)}.
 
@@ -74,7 +73,6 @@
         make_literal("throw error", ?NOSRCMAP).
 
     make_declarations(List, Loc) when is_list(List) ->
-        io:format("List is ~p~n", [List]),
         Decs = make_decs(List, []),
         {obj, lists:flatten([
                              {"type",         <<"VariableDeclaration">>},
@@ -138,6 +136,7 @@
         }.
 
     make_switch(Variable, Cases, Loc) ->
+        io:format("in make_switch ~p~n", [Cases]),
         {obj, lists:flatten([
                              {"type",         <<"SwitchStatement">>},
                              {"discriminant", {obj, [
