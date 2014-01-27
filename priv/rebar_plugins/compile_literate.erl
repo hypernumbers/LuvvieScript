@@ -44,7 +44,7 @@ make_erl2([], _Type, Acc) ->
 make_erl2(["```erlang" ++ _Rest | T], comment, Acc) ->
     make_erl3(T, erlang, ["%%%```erlang\n" | Acc]);
 make_erl2([H | T], comment, Acc) ->
-    make_erl2(T, comment, ["%%% " ++ H | Acc]).
+    make_erl2(T, comment, ["%%%" ++ H | Acc]).
 
 make_erl3([], _Type, Acc) ->
     lists:flatten(lists:reverse(Acc));

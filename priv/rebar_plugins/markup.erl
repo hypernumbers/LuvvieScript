@@ -73,6 +73,12 @@ make_erlang([], Acc) ->
 make_erlang(["\n" | T], Acc) ->
     make_erlang(T, ["\n" | Acc]);
 %% order matters!
+make_erlang(["%%%```" ++ Rest | T], Acc) ->
+    make_markdown(T, ["```\n" | Acc]);
+make_erlang(["%%```" ++ Rest | T], Acc) ->
+    make_markdown(T, ["```\n" | Acc]);
+make_erlang(["%```" ++ Rest | T], Acc) ->
+    make_markdown(T, ["```\n" | Acc]);
 make_erlang(["%%%" ++ Rest | T], Acc) ->
     make_markdown(T, [Rest, "```\n" | Acc]);
 make_erlang(["%%" ++ Rest | T], Acc) ->
