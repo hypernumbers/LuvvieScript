@@ -15,6 +15,7 @@
              make_return/2,
              make_fail/0,
              make_declarations/2,
+             make_array/2,
              make_object/2,
              make_block_statement/2,
              make_fn/3,
@@ -107,6 +108,20 @@
                             ])
         }.
 
+    make_array(List, Loc) ->
+        make_a2(List, Loc, []).
+
+    make_a2([], Loc, Acc) ->
+        {obj, lists:flatten([
+                             {"type",     <<"ArrayExpression">>},
+                             {"elements", lists:reverse(Acc)},
+                             Loc
+                            ])
+        };
+    make_a2([H | T], Loc, Acc) ->
+        NewAcc = make_literal(H, ?NOSRCMAP),
+        make_a2(T, Loc, [NewAcc | Acc]).
+
     make_block_statement(Block, Loc) when is_list(Block) ->
         {obj,
          lists:flatten([
@@ -138,7 +153,7 @@
                              {"type",         <<"SwitchStatement">>},
                              {"discriminant", {obj, [
                                                      {"type", <<"Identifier">>},
-                                       {"name", Variable}
+                                                     {"name", Variable}
                                                     ]
                                               }
 
@@ -187,7 +202,16 @@
 
     make_literal(null, _Loc) ->
         null;
-    make_literal(Val, Loc) ->
+    make_literal(Val, Loc) when is_integer(Val) ->
+        make_l2(Val, Loc);
+    make_literal(Val, Loc) when is_float(Val) ->
+        make_l2(Val, Loc);
+    make_literal(Val, Loc) when is_atom(Val) ->
+        make_object({obj, [{"atom", Val}]}, Loc);
+    make_literal(Val, Loc) when is_list(Val) ->
+        make_array(Val, Loc).
+
+    make_l2(Val, Loc) ->
         {obj, lists:flatten([
                              {"type",  <<"Literal">>},
                              {"value", enc_v(Val)},
@@ -277,7 +301,6 @@
     enc_v(Tuple) when is_tuple(Tuple) -> Tuple.
 
 ```
- ```
 
  Unit Tests
 
@@ -290,25 +313,28 @@
 
     log_output(Strap, Got, Expected) ->
         code:add_patha("../deps/rfc4627_jsonrpc/ebin"),
+        filelib:ensure_dir("/tmp/jast/got.log"),
+        %% do the Gots
         GotMsg = io_lib:format(Strap ++ "~n~p~n", [Got]),
-        ExpMsg = io_lib:format(Strap ++ "~n~p~n", [Expected]),
-        filelib:ensure_dir("/tmp/jast/junk.log"),
         GotJson = rfc4627:encode(Got),
-        ExpJson = rfc4627:encode(Expected),
         GotJsonMsg = io_lib:format(Strap ++ " Json~n~s~n", [GotJson]),
-        ExpJsonMsg = io_lib:format(Strap ++ " Json~n~s~n", [ExpJson]),
         make_utils:plain_log(GotMsg, "/tmp/jast/got.log"),
-        make_utils:plain_log(ExpMsg, "/tmp/jast/exp.log"),
         make_utils:plain_log(GotJsonMsg, "/tmp/jast/got.log"),
+        %% then do the Exps
+        ExpMsg = io_lib:format(Strap ++ "~n~p~n", [Expected]),
+        ExpJson = rfc4627:encode(Expected),
+        ExpJsonMsg = io_lib:format(Strap ++ " Json~n~s~n", [ExpJson]),
+        make_utils:plain_log(ExpMsg, "/tmp/jast/exp.log"),
         make_utils:plain_log(ExpJsonMsg, "/tmp/jast/exp.log"),
         ok.
 
     log(Prefix, Term) ->
-        filelib:ensure_dir("/tmp/jast/junk.log"),
+        filelib:ensure_dir("/tmp/jast/debug.log"),
         Msg = io_lib:format(Prefix ++ "~n~p", [Term]),
         make_utils:plain_log(Msg, "/tmp/jast/debug.log").
 
     switch_test_() ->
+        io:format("Got to 1~n"),
         Exp = {obj,[{"type",<<"SwitchStatement">>},
                     {"discriminant",{obj,[{"type",<<"Identifier">>},{"name",<<"args">>}]}},
                     {"cases",
@@ -318,9 +344,23 @@
                             {"consequent",
                              [{obj,[{"type",<<"ExpressionStatement">>},
                                     {"expression",
-                                     {obj,[{"type",<<"Literal">>},
-                                           {"value",<<"jerk">>},
-                                           {"raw",<<"\"jerk\"">>}]}}]},
+                                     {obj,[{"type",<<"ArrayExpression">>},
+                                           {"elements",
+                                            [{obj,[{"type",<<"Literal">>},
+                                                   {"value",106},
+                                                   {"raw",<<"106">>}]},
+                                             {obj,[{"type",<<"Literal">>},
+                                                   {"value",101},
+                                                   {"raw",<<"101">>}]},
+                                             {obj,[{"type",<<"Literal">>},
+                                                   {"value",114},
+                                                   {"raw",<<"114">>}]},
+                                             {obj,[{"type",<<"Literal">>},
+                                                   {"value",107},
+                                                   {"raw",<<"107">>}]}
+                                            ]}
+                                          ]}}
+                                   ]},
                               {obj,[{"type",<<"BreakStatement">>},{"label",null}]}]}]},
                       {obj,[{"type",<<"SwitchCase">>},
                             {"test",
@@ -328,24 +368,46 @@
                             {"consequent",
                              [{obj,[{"type",<<"ExpressionStatement">>},
                                     {"expression",
-                                     {obj,[{"type",<<"Literal">>},
-                                           {"value",<<"erk">>},
-                                           {"raw",<<"\"erk\"">>}]}}]},
-                              {obj,[{"type",<<"BreakStatement">>},{"label",null}]}]}]},
+                                     {obj,[{"type",<<"ArrayExpression">>},
+                                           {"elements",
+                                            [{obj,[{"type",<<"Literal">>},
+                                                   {"value",101},
+                                                   {"raw",<<"101">>}]},
+                                             {obj,[{"type",<<"Literal">>},
+                                                   {"value",114},
+                                                   {"raw",<<"114">>}]},
+                                             {obj,[{"type",<<"Literal">>},
+                                                   {"value",107},
+                                                   {"raw",<<"107">>}]}]}]}}]},
+                              {obj,[{"type",<<"BreakStatement">>},{"label",null}]}
+                             ]}]},
                       {obj,[{"type",<<"SwitchCase">>},
                             {"test",null},
                             {"consequent",
                              [{obj,[{"type",<<"ExpressionStatement">>},
                                     {"expression",
-                                     {obj,[{"type",<<"Literal">>},
-                                           {"value",<<"shirk">>},
-                                           {"raw",<<"\"shirk\"">>}]}}]}]}]}]}]},
-        J = make_expression(make_literal("jerk",  ?NOSRCMAP), ?NOSRCMAP),
-        E = make_expression(make_literal("erk",   ?NOSRCMAP), ?NOSRCMAP),
-        S = make_expression(make_literal("shirk", ?NOSRCMAP), ?NOSRCMAP),
+                                     {obj,[{"type",<<"ArrayExpression">>},
+                                           {"elements",
+                                            [{obj,[{"type",<<"Literal">>},
+                                                   {"value",114},
+                                                   {"raw",<<"114">>}]},
+                                             {obj,[{"type",<<"Literal">>},
+                                                   {"value",107},
+                                                   {"raw",<<"107">>}]}
+                                            ]}
+                                          ]}}
+                                   ]}
+                             ]}
+                           ]}
+                     ]}
+                   ]
+              },
+        J = make_expression(make_literal("jerk", ?NOSRCMAP), ?NOSRCMAP),
+        E = make_expression(make_literal("erk",  ?NOSRCMAP), ?NOSRCMAP),
+        R = make_expression(make_literal("rk",   ?NOSRCMAP), ?NOSRCMAP),
         Got = make_switch(<<"args">>, [{0,    [J], ?WITHBREAK},
                                        {1,    [E], ?WITHBREAK},
-                                       {null, [S], ?NOBREAK}], ?NOSRCMAP),
+                                       {null, [R], ?NOBREAK}], ?NOSRCMAP),
         %% log_output("Switch", Got, Exp),
         ?_assertEqual(Got, Exp).
 
@@ -437,8 +499,8 @@
                              {"argument",
                               {obj,
                                [{"type",<<"Literal">>},
-                                {"value",<<"banjolette">>},
-                                {"raw",<<"\"banjolette\"">>}
+                                {"value",111},
+                                {"raw",<<"111">>}
                                ]}}
                             ]}
                           ]}
@@ -452,7 +514,7 @@
         FnName   = make_identifier("simplefn", ?NOSRCMAP),
         Params   = ?EMPTYJSONLIST,
         Defaults = ?EMPTYJSONLIST,
-        Literal  = make_literal("banjolette", ?NOSRCMAP),
+        Literal  = make_literal(111, ?NOSRCMAP),
         Return   = make_return(Literal, ?NOSRCMAP),
         Body     = make_block_statement([Return], ?NOSRCMAP),
         FnBody   = make_fn_body(Params, Defaults, Body, ?NOSRCMAP),
@@ -624,7 +686,20 @@
         Block  = make_block_statement([Return], ?NOSRCMAP),
         Body   = make_fn_body([], [], Block, ?NOSRCMAP),
         Got    = make_fn(Left, Body, ?NOSRCMAP),
-        log_output("Fn Call", Got, Exp),
+        %% log_output("Fn Call", Got, Exp),
+        ?_assertEqual(Got, Exp).
+
+    array_test_() ->
+
+        Exp = {obj,[{"type",<<"ArrayExpression">>},
+                    {"elements",
+                     [{obj,[{"type",<<"Literal">>},{"value",1},{"raw",<<"1">>}]},
+                      {obj,[{"type",<<"Literal">>},{"value",2},{"raw",<<"2">>}]},
+                      {obj,[{"type",<<"Literal">>},{"value",3},{"raw",<<"3">>}]},
+                      {obj,[{"type",<<"Literal">>},{"value",4},{"raw",<<"4">>}]}]}]},
+        Got = make_array([1, 2, 3, 4], ?NOSRCMAP),
+        io:format("Got is ~p~n", [Got]),
+        %% log_output("Array", Got, Exp),
         ?_assertEqual(Got, Exp).
 
 ```

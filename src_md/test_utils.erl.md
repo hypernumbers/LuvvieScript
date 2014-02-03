@@ -14,7 +14,8 @@
              generate_fn/0,
              generate_return/0,
              generate_declarations/0,
-             generate_fncall/0
+             generate_fncall/0,
+             generate_array/0
             ]).
 
     generate_switch() ->
@@ -356,4 +357,35 @@
         {ok, Json, []} = rfc4627:decode(J),
         JStr = io_lib:format("~p", [Json]),
         make_utils:plain_log(JStr, "/tmp/test_utils.txt").
+
+    generate_array() ->
+        J = "{
+                    \"type\": \"ArrayExpression\",
+                    \"elements\": [
+                        {
+                            \"type\": \"Literal\",
+                            \"value\": 1,
+                            \"raw\": \"1\"
+                        },
+                        {
+                            \"type\": \"Literal\",
+                            \"value\": 2,
+                            \"raw\": \"2\"
+                        },
+                        {
+                            \"type\": \"Literal\",
+                            \"value\": 3,
+                            \"raw\": \"3\"
+                        },
+                        {
+                            \"type\": \"Literal\",
+                            \"value\": 4,
+                            \"raw\": \"4\"
+                        }
+                    ]
+                }",
+        {ok, Json, []} = rfc4627:decode(J),
+        JStr = io_lib:format("~p", [Json]),
+        make_utils:plain_log(JStr, "/tmp/test_utils.txt").
+
 ```
