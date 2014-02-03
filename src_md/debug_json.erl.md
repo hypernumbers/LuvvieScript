@@ -1,3 +1,11 @@
+    @author    Gordon Guthrie
+    @copyright (C) 2014, Gordon Guthrie
+    @doc       sometimes you need to dig into the json you
+               have created - this module can help debug it
+               mebbies, YMMV
+
+    @end
+    Created : 10th January 2014 by gordon@vixo.com
 ```erlang
     -module(debug_json).
 
