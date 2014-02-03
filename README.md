@@ -17,7 +17,7 @@
 
 <div class="jumbotron">
   <h1>Erlang In The Browser</h1>
-  <p>LuvvieScript is designed to deliver the simplicity of Erlang's message passing and pattern-matching paradigm to the developers of large scale web systems. LuvvieScript is a front-end langauge that works seamlessly with high-availability Erlang server clusters for fast and powerful web development. LuvvieScript is perfectly suited for DevOps and environments concerned with continuous integration/continuous deployment.
+  <p>LuvvieScript is designed to deliver the simplicity of Erlang's message passing and pattern-matching paradigm to the developers of large scale web systems. LuvvieScript is a front-end language that works seamlessly with high-availability Erlang server clusters for fast and powerful web development. LuvvieScript is perfectly suited for DevOps and environments concerned with continuous integration/continuous deployment.
   </p>
 </div>
 
