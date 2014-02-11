@@ -19,7 +19,7 @@
   or the equivalent. That dir needs to be set in the rebar compiler
   options for this to compile
 ```erlang
-    -include_lib("core_parse.hrl").
+    -include_lib("compiler/src/core_parse.hrl").
 
     compile(File) ->
         compile(File, production).
@@ -87,7 +87,7 @@
         FileOut    = DirOut ++ FileRoot ++ ".js",
         SourceMap  = DirOut ++ FileRoot ++ ".js.map",
         SourceFile = SrcDir ++ FileRoot ++ ".erl",
-        CodeGen    = "/usr/local/bin/escodegen-cl2",
+        CodeGen    = "escodegen-cl2",
         Cmd = CodeGen
             ++ " --js_ast "      ++ FileIn
             ++ " --js_output "   ++ FileOut

@@ -12,7 +12,7 @@
              conv/1
             ]).
 
-    -include_lib("core_parse.hrl").
+    -include_lib("compiler/src/core_parse.hrl").
     -include("luvviescript.hrl").
     -include("macros.hrl").
 
