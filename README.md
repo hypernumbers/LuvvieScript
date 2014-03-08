@@ -1,3 +1,5 @@
+**New** LuvvieScript is in the Google Summer Of Code 2014 - for details and applying see http://beamcommunity.github.io/
+
 **New** our website is <a href="http://luvv.ie">luvv.ie</a>!
 
 **New** Interested in writing your own to-javascript-tranpspiler? Got some <a href='http://luvv.ie/2014/01/21/your-transpiler-to-javascript-toolbox/'>tricks'n'tips</a> for ya in a new blog post!
