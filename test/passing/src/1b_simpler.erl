@@ -8,4 +8,4 @@ simple_fn() ->
     not_exported_fn().
 
 not_exported_fn() ->
-    django.
+    luvv_utils:external_format(django).

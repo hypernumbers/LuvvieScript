@@ -11,18 +11,20 @@
 
     -export([
              make_erlang_call/3,
+             make_comment/3,
              make_apply/2,
              make_return/2,
              make_fail/0,
              make_declarations/2,
              make_array/2,
              make_object/2,
+             make_property/3,
              make_block_statement/2,
              make_fn/3,
              make_fn_body/4,
              make_switch/3,
              make_cases/2,
-             make_programme/2,
+             make_programme/3,
              make_identifier/2,
              make_literal/2,
              make_method/3,
@@ -31,7 +33,7 @@
              make_expression/2
             ]).
 
-    -include_lib("core_parse.hrl").
+    -include_lib("compiler/src/core_parse.hrl").
     -include("luvviescript.hrl").
     -include("macros.hrl").
 
@@ -56,6 +58,18 @@
     rectify(#c_var{name = A}, #c_var{name = B}) ->
         {make_identifier(atom_to_list(A), ?NOSRCMAP),
          make_identifier(atom_to_list(B), ?NOSRCMAP)}.
+
+    make_comment(Comment, Type, Loc) when Type == line orelse Type == block ->
+        Type2 = case Type of
+                    block -> "Block";
+                    line  -> "Line"
+                end,
+        {obj, lists:flatten([
+                             {"type",  enc_v(Type2)},
+                             {"value", enc_v(Comment)},
+                             Loc
+                            ])
+        }.
 
     make_apply(#c_apply{op = Op, args = Args}, Loc) ->
         {Name, _} = Op#c_var.name,
@@ -100,10 +114,21 @@
                  },
         make_decs(T, [NewAcc | Acc]).
 
-    make_object({obj, List}, Loc) when is_list(List) ->
+    make_object(List, Loc) when is_list(List) ->
+        Properties = [make_property(K, V, ?NOSRCMAP) || {K , V} <- List],
         {obj, lists:flatten([
                              {"type",       <<"ObjectExpression">>},
-                             {"properties", List},
+                             {"properties", Properties},
+                             Loc
+                            ])
+        }.
+
+    make_property(Key, Val, Loc) ->
+        {obj, lists:flatten([
+                             {"type",  <<"Property">>},
+                             {"key",   Key},
+                             {"value", Val},
+                             {"kind",  <<"init">>},
                              Loc
                             ])
         }.
@@ -184,9 +209,15 @@
                  },
         make_cases(T, [NewAcc | Acc]).
 
-    make_programme(Body, Loc) when is_list(Body) ->
+    make_programme(Comments, Body, Loc) when is_list(Body)     andalso
+                                             is_list(Comments) ->
+        Com2 = case Comments of
+                   "" -> [];
+                   _  -> {"comments", Comments}
+               end,
         {obj, lists:flatten([
                              {"type", <<"Program">>},
+                             Com2,
                              {"body", Body},
                              Loc
                             ])
@@ -207,7 +238,10 @@
     make_literal(Val, Loc) when is_float(Val) ->
         make_l2(Val, Loc);
     make_literal(Val, Loc) when is_atom(Val) ->
-        make_object({obj, [{"atom", Val}]}, Loc);
+        Atom2 = make_identifier("atom", Loc),
+        Val2 = atom_to_list(Val),
+        Literal2 = make_l2(Val2, Loc),
+        make_object([{Atom2, Literal2}], Loc);
     make_literal(Val, Loc) when is_list(Val) ->
         make_array(Val, Loc).
 
@@ -313,28 +347,27 @@
 
     log_output(Strap, Got, Expected) ->
         code:add_patha("../deps/rfc4627_jsonrpc/ebin"),
-        filelib:ensure_dir("/tmp/jast/got.log"),
+        filelib:ensure_dir("/tmp/js_ast/got.log"),
         %% do the Gots
         GotMsg = io_lib:format(Strap ++ "~n~p~n", [Got]),
         GotJson = rfc4627:encode(Got),
         GotJsonMsg = io_lib:format(Strap ++ " Json~n~s~n", [GotJson]),
-        make_utils:plain_log(GotMsg, "/tmp/jast/got.log"),
-        make_utils:plain_log(GotJsonMsg, "/tmp/jast/got.log"),
+        make_utils:plain_log(GotMsg, "/tmp/js_ast/got.log"),
+        make_utils:plain_log(GotJsonMsg, "/tmp/js_ast/got.log"),
         %% then do the Exps
         ExpMsg = io_lib:format(Strap ++ "~n~p~n", [Expected]),
         ExpJson = rfc4627:encode(Expected),
         ExpJsonMsg = io_lib:format(Strap ++ " Json~n~s~n", [ExpJson]),
-        make_utils:plain_log(ExpMsg, "/tmp/jast/exp.log"),
-        make_utils:plain_log(ExpJsonMsg, "/tmp/jast/exp.log"),
+        make_utils:plain_log(ExpMsg, "/tmp/js_ast/exp.log"),
+        make_utils:plain_log(ExpJsonMsg, "/tmp/js_ast/exp.log"),
         ok.
 
     log(Prefix, Term) ->
-        filelib:ensure_dir("/tmp/jast/debug.log"),
+        filelib:ensure_dir("/tmp/js_ast/debug.log"),
         Msg = io_lib:format(Prefix ++ "~n~p", [Term]),
-        make_utils:plain_log(Msg, "/tmp/jast/debug.log").
+        make_utils:plain_log(Msg, "/tmp/js_ast/debug.log").
 
     switch_test_() ->
-        io:format("Got to 1~n"),
         Exp = {obj,[{"type",<<"SwitchStatement">>},
                     {"discriminant",{obj,[{"type",<<"Identifier">>},{"name",<<"args">>}]}},
                     {"cases",
@@ -523,85 +556,83 @@
         ?_assertEqual(Got, Exp).
 
     return_test_() ->
-```
- var fn = function () {
- 	var a;
- 	var b;
- 	a = 1;
- 	b = 2;
- 	return a/b;
- 	}
-```erlang
+        %% var fn = function () {
+        %% 	var a;
+        %% 	var b;
+        %% 	a = 1;
+        %% 	b = 2;
+        %% 	return a/b;
+        %% 	}
         Exp = {obj,
-     [{"type",<<"ExpressionStatement">>},
-      {"expression",
-       {obj,
-        [{"type",<<"AssignmentExpression">>},
-         {"operator",<<"=">>},
-         {"left",{obj,[{"type",<<"Identifier">>},{"name",<<"fn">>}]}},
-         {"right",
-          {obj,
-           [{"type",<<"FunctionExpression">>},
-            {"id",null},
-            {"params",[]},
-            {"defaults",[]},
-            {"body",
-             {obj,
-              [{"type",<<"BlockStatement">>},
-               {"body",
-                [{obj,
-                  [{"type",<<"VariableDeclaration">>},
-                   {"declarations",
-                    [{obj,
-                      [{"type",<<"VariableDeclarator">>},
-                       {"id",{obj,[{"type",<<"Identifier">>},{"name",<<"a">>}]}},
-                       {"init",null}]}]},
-                   {"kind",<<"var">>}]},
+               [{"type",<<"ExpressionStatement">>},
+                {"expression",
                  {obj,
-                  [{"type",<<"VariableDeclaration">>},
-                   {"declarations",
-                    [{obj,
-                      [{"type",<<"VariableDeclarator">>},
-                       {"id",{obj,[{"type",<<"Identifier">>},{"name",<<"b">>}]}},
-                       {"init",null}]}]},
-                   {"kind",<<"var">>}]},
-                 {obj,
-                  [{"type",<<"ExpressionStatement">>},
-                   {"expression",
+                  [{"type",<<"AssignmentExpression">>},
+                   {"operator",<<"=">>},
+                   {"left",{obj,[{"type",<<"Identifier">>},{"name",<<"fn">>}]}},
+                   {"right",
                     {obj,
-                     [{"type",<<"AssignmentExpression">>},
-                      {"operator",<<"=">>},
-                      {"left",{obj,[{"type",<<"Identifier">>},{"name",<<"a">>}]}},
-                      {"right",
+                     [{"type",<<"FunctionExpression">>},
+                      {"id",null},
+                      {"params",[]},
+                      {"defaults",[]},
+                      {"body",
                        {obj,
-                        [{"type",<<"Literal">>},
-                         {"value",1},
-                         {"raw",<<"1">>}]}}]}}]},
-                 {obj,
-                  [{"type",<<"ExpressionStatement">>},
-                   {"expression",
-                    {obj,
-                     [{"type",<<"AssignmentExpression">>},
-                      {"operator",<<"=">>},
-                      {"left",{obj,[{"type",<<"Identifier">>},{"name",<<"b">>}]}},
-                      {"right",
-                       {obj,
-                        [{"type",<<"Literal">>},
-                         {"value",2},
-                         {"raw",<<"2">>}]}}]}}]},
-                 {obj,
-                  [{"type",<<"ReturnStatement">>},
-                   {"argument",
-                    {obj,
-                     [{"type",<<"BinaryExpression">>},
-                      {"operator",<<"/">>},
-                      {"left",{obj,[{"type",<<"Identifier">>},{"name",<<"a">>}]}},
-                      {"right",
-                       {obj,
-                        [{"type",<<"Identifier">>},{"name",<<"b">>}]}}]}}]}]}]}},
-            {"rest",null},
-            {"generator",false},
-            {"expression",false}]}}]}}]},
+                        [{"type",<<"BlockStatement">>},
+                         {"body",
+                          [{obj,
+                            [{"type",<<"VariableDeclaration">>},
+                             {"declarations",
+                              [{obj,
+                                [{"type",<<"VariableDeclarator">>},
+                                 {"id",{obj,[{"type",<<"Identifier">>},{"name",<<"a">>}]}},
+                                 {"init",null}]}]},
+                             {"kind",<<"var">>}]},
+                           {obj,
+                            [{"type",<<"VariableDeclaration">>},
+                             {"declarations",
+                              [{obj,
+                                [{"type",<<"VariableDeclarator">>},
+                                 {"id",{obj,[{"type",<<"Identifier">>},{"name",<<"b">>}]}},
+                                 {"init",null}]}]},
+                             {"kind",<<"var">>}]},
+                           {obj,
+                            [{"type",<<"ExpressionStatement">>},
+                             {"expression",
+                              {obj,
+                               [{"type",<<"AssignmentExpression">>},
+                                {"operator",<<"=">>},
+                                {"left",{obj,[{"type",<<"Identifier">>},{"name",<<"a">>}]}},
+                                {"right",
+                                 {obj,
+                                  [{"type",<<"Literal">>},
+                                   {"value",1},
+                                   {"raw",<<"1">>}]}}]}}]},
+                           {obj,
+                            [{"type",<<"ExpressionStatement">>},
+                             {"expression",
+                              {obj,
+                               [{"type",<<"AssignmentExpression">>},
+                                {"operator",<<"=">>},
+                                {"left",{obj,[{"type",<<"Identifier">>},{"name",<<"b">>}]}},
+                                {"right",
+                                 {obj,
+                                  [{"type",<<"Literal">>},
+                                   {"value",2},
+                                   {"raw",<<"2">>}]}}]}}]},
+                           {obj,
+                            [{"type",<<"ReturnStatement">>},
+                             {"argument",
+                              {obj,
+                               [{"type",<<"BinaryExpression">>},
+                                {"operator",<<"/">>},
+                                {"left",{obj,[{"type",<<"Identifier">>},{"name",<<"a">>}]}},
+                                {"right",
+                                 {obj,
+                                  [{"type",<<"Identifier">>},{"name",<<"b">>}]}}]}}]}]}]}},
+                      {"rest",null},
+                      {"generator",false},
+                      {"expression",false}]}}]}}]},
 
         FnName   = make_identifier("fn", ?NOSRCMAP),
         Params   = ?EMPTYJSONLIST,
@@ -652,34 +683,34 @@
         %%	   return anotherfn();
         %% }
         Exp = {obj,
-                [{"type",<<"ExpressionStatement">>},
-                 {"expression",
-                  {obj,
-                   [{"type",<<"AssignmentExpression">>},
-                    {"operator",<<"=">>},
-                    {"left",{obj,[{"type",<<"Identifier">>},{"name",<<"somefn">>}]}},
-                    {"right",
-                     {obj,
-                      [{"type",<<"FunctionExpression">>},
-                       {"id",null},
-                       {"params",[]},
-                       {"defaults",[]},
-                       {"body",
-                        {obj,
-                         [{"type",<<"BlockStatement">>},
-                          {"body",
-                           [{obj,
-                             [{"type",<<"ReturnStatement">>},
-                              {"argument",
-                               {obj,
-                                [{"type",<<"CallExpression">>},
-                                 {"callee",
-                                  {obj,
-                                   [{"type",<<"Identifier">>},{"name",<<"anotherfn">>}]}},
-                                 {"arguments",[]}]}}]}]}]}},
-                       {"rest",null},
-                       {"generator",false},
-                       {"expression",false}]}}]}}]},
+               [{"type",<<"ExpressionStatement">>},
+                {"expression",
+                 {obj,
+                  [{"type",<<"AssignmentExpression">>},
+                   {"operator",<<"=">>},
+                   {"left",{obj,[{"type",<<"Identifier">>},{"name",<<"somefn">>}]}},
+                   {"right",
+                    {obj,
+                     [{"type",<<"FunctionExpression">>},
+                      {"id",null},
+                      {"params",[]},
+                      {"defaults",[]},
+                      {"body",
+                       {obj,
+                        [{"type",<<"BlockStatement">>},
+                         {"body",
+                          [{obj,
+                            [{"type",<<"ReturnStatement">>},
+                             {"argument",
+                              {obj,
+                               [{"type",<<"CallExpression">>},
+                                {"callee",
+                                 {obj,
+                                  [{"type",<<"Identifier">>},{"name",<<"anotherfn">>}]}},
+                                {"arguments",[]}]}}]}]}]}},
+                      {"rest",null},
+                      {"generator",false},
+                      {"expression",false}]}}]}}]},
         Left   = make_identifier("somefn", ?NOSRCMAP),
         Right  = make_call_expr(make_identifier("anotherfn", ?NOSRCMAP), [], ?NOSRCMAP),
         Return = make_return(Right, ?NOSRCMAP),
@@ -698,8 +729,74 @@
                       {obj,[{"type",<<"Literal">>},{"value",3},{"raw",<<"3">>}]},
                       {obj,[{"type",<<"Literal">>},{"value",4},{"raw",<<"4">>}]}]}]},
         Got = make_array([1, 2, 3, 4], ?NOSRCMAP),
-        io:format("Got is ~p~n", [Got]),
         %% log_output("Array", Got, Exp),
+        ?_assertEqual(Got, Exp).
+
+    object_test_() ->
+        Exp = {obj,[{"type",<<"ObjectExpression">>},
+                    {"properties",
+                     [{obj,[{"type",<<"Property">>},
+                            {"key",{obj,[{"type",<<"Identifier">>},{"name",<<"atom">>}]}},
+                            {"value",
+                             {obj,[{"type",<<"Literal">>},
+                                   {"value",<<"berk">>},
+                                   {"raw",<<"\"berk\"">>}]}},
+                            {"kind",<<"init">>}]}]}]},
+        Got = make_literal(berk, ?NOSRCMAP),
+        %% log_output("Atom", Got, Exp),
+        ?_assertEqual(Got, Exp).
+
+```
+Mod.Fn = function () {
+	return "erk";
+	}
+```erlang
+    mod_fn_test_() ->
+        Exp = [
+               {obj,
+                [{"type",<<"ExpressionStatement">>},
+                 {"expression",
+                  {obj,
+                   [{"type",<<"AssignmentExpression">>},
+                    {"operator",<<"=">>},
+                    {"left",
+                     {obj,
+                      [{"type",<<"MemberExpression">>},
+                       {"computed",false},
+                       {"object",{obj,[{"type",<<"Identifier">>},{"name",<<"Mod">>}]}},
+                       {"property",
+                        {obj,[{"type",<<"Identifier">>},{"name",<<"Fn">>}]}}]}},
+                    {"right",
+                     {obj,
+                      [{"type",<<"FunctionExpression">>},
+                       {"id",null},
+                       {"params",[]},
+                       {"defaults",[]},
+                       {"body",
+                        {obj,
+                         [{"type",<<"BlockStatement">>},
+                          {"body",
+                           [{obj,
+                             [{"type",<<"ReturnStatement">>},
+                              {"argument",
+                               {obj,
+                                [{"type",<<"Literal">>},
+                                 {"value",<<"erk">>},
+                                 {"raw",<<"\"erk\"">>}]}}]}]}]}},
+                       {"rest",null},
+                       {"generator",false},
+                       {"expression",false}]}}]}}]}
+              ],
+        FnName   = make_identifier("Fn", ?NOSRCMAP),
+        Params   = ?EMPTYJSONLIST,
+        Defaults = ?EMPTYJSONLIST,
+        Literal  = make_literal("erk", ?NOSRCMAP),
+        Return   = make_return(Literal, ?NOSRCMAP),
+        Body     = make_block_statement([Return], ?NOSRCMAP),
+        FnBody   = make_fn_body(Params, Defaults, Body, ?NOSRCMAP),
+        Fn       = make_fn(FnName, FnBody, ?NOSRCMAP),
+        Got      = make_method("Mod", Fn, ?NOSRCMAP),
+        log_output("Mod:Fn", Got, Exp),
         ?_assertEqual(Got, Exp).
 
 ```

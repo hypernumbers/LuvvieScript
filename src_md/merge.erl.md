@@ -18,7 +18,7 @@
   or the equivalent. That dir needs to be set in the rebar compiler
   options for this to compile
 ```erlang
-    -include_lib("core_parse.hrl").
+    -include_lib("compiler/src/core_parse.hrl").
 
     add_line_info(Syntax, Tokens) ->
         merge(Syntax, Tokens, []).

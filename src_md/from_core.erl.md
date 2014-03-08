@@ -12,7 +12,7 @@
              conv/1
             ]).
 
-    -include_lib("core_parse.hrl").
+    -include_lib("compiler/src/core_parse.hrl").
     -include("luvviescript.hrl").
     -include("macros.hrl").
 
@@ -32,14 +32,23 @@
         Decl2 = lists:zip([exports | Decl], lists:duplicate(NDecls, ?EMPTYOBJECT)),
         Decls = to_js_ast:make_declarations(Decl2, ?NOSRCMAP),
         Exp  = conv_exports(Exports),
-        to_js_ast:make_programme([Decls] ++ Exp ++ Body, ?NOSRCMAP).
+        Comment = "This Module is compiled LuvvieScript\n"
+            ++ "See http://luvv.ie\n"
+            ++ "\n"
+            ++ "Our philosophy is 'make it work then fix it up'\n"
+            ++ "(We are still in phase one)"
+            ++ "\n"
+            ++  "Follow @gordonguthrie or @luvviescript on Twitter for updates\n",
+        Comm = to_js_ast:make_comment(Comment, block, ?NOSRCMAP),
+        to_js_ast:make_programme([Comm], [Decls] ++ Exp ++ Body, ?NOSRCMAP).
 
     conv({#c_var{name = {FnName, _}} = CVar, FnList}, Context) ->
         FnBody = conv_fn(FnList, ?NOSRCMAP),
         Body = to_js_ast:make_fn_body(?EMPTYJSONLIST, ?EMPTYJSONLIST, FnBody, ?NOSRCMAP),
         Loc = get_loc(CVar),
         Left = to_js_ast:make_identifier(atom_to_list(FnName), Loc),
-        {FnName, to_js_ast:make_fn(Left, Body, Loc)}.
+        Fn = to_js_ast:make_fn(Left, Body, Loc),
+        {FnName, Fn}.
 
     conv_exports(Exports) ->
         Exps2 = group_exps_of_diff_arity(Exports),
@@ -100,6 +109,9 @@
         conv_let(CLet, [], []);
     conv_body(#c_apply{} = CApply) ->
         [to_js_ast:make_return(conv_args(CApply), ?NOSRCMAP)];
+    conv_body(#c_call{module = Mod, name = Fn, args = Args}) ->
+        ModFun = atom_to_list(Mod) ++ "." ++ atom_to_list(Fn),
+        to_js_ast:make_call_expr(ModFun, Args, ?NOSRCMAP);
     conv_body(Body) ->
         io:format("Need to convert body ~p~n", [Body]),
         [{obj, [
