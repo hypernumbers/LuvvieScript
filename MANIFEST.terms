@@ -1,0 +1,49 @@
+%% this is a manifest file for the Stal Erlang Project Index
+% Stal is hosted at http://erlangotp.com
+{stal_conf_version, 1}.
+
+%% Project Details
+%% these are designed to help people find the software they need
+{name, "LuvvieScript"}.
+{project_version, "1"}.
+{license, "BSD 2-clause"}.
+{description, "Erlang-to-Javascript transpiler"}.
+{details, "An OTP-ish dialect of Erlang which can run on both the server-side and the browser"}.
+{tags, ["javascript", "transpiler", "compiler", "browser", "single-stack"]}.
+{status, "alpha"}. % alpha | beta | production
+
+%% Required contact details
+{url, "http://github.com/hypernumbers/LuvvieScript"}.
+
+%% Optional contact details
+% {irc, ""}. % optional
+{maintainers, [
+               [
+                 {name,    "Gordon Guthrie"},
+                 {email,   "gordon@hypernumbers.com"},
+                 {twitter, "gordonguthrie"}
+                ],
+                [
+                 {name,    "Luvvie Script"},
+                 {twitter, "luvviescript"}
+                ]
+                ]}. %optional
+{project_homepage, "http://luvv.ie"}. % optional
+
+%% How to include this code in your project
+%% are there other build system that need to be represented?
+%% what about Elixir ones?
+%% or LFe ones?
+%% or Joxa ones?
+% {rebar, {version, "1"}, {, {git, "git://github.com/hypernumbers/.git","master"}}}.
+% {'erlang.mk', ??}. % Erlang build script
+% {'mix.exs' ??}. % Elixir package manager
+% {'expm', ??}. % Elixir package manager
+{scm, "git clone https://github.com/hypernumbers/LuvvieScript.git"}.
+
+%% Some terms to control usage of this manifest by Stal
+{stal_include, true}.
+{stal_deprecated, false}.
+% {stal_superseded_by, "foo/bar"}. % optional
+
+%% Are there other manifest systems that might want to pull these terms in?
